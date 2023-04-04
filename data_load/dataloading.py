@@ -32,7 +32,6 @@ def data_preparation(wav_path, fold):
         features_list = np.load(f'features_{num_of_classes}_classes.npy')
         file_names = np.load(f'wav_names_{num_of_classes}_classes.npy')
         shapes_list = np.load(f'shapes_{num_of_classes}_classes.npy')
-        
     else:
         features, class_names, file_names = feature_extractor(wav_path)
         shapes_list = [arr.shape[0] for arr in features]
@@ -91,7 +90,7 @@ def data_preparation(wav_path, fold):
     elif fold.isdigit():
         # features_list: list of feature vectors
         # labels: list of labels
-        
+        fold = int(fold)
         kfold_cross_val(features_list, file_names, labels, fold)
         
         
