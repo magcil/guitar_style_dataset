@@ -27,7 +27,7 @@ def data_preparation(wav_path, fold):
     # feature extraction process
     if os.path.exists(f'features_{num_of_classes}_classes.npy'):
         # check if feature extraction has already been performed
-        print(f"\nFeature extraction for {wav_path} has already been performed. Continuing...")
+        print(f"\nFeature extraction for {wav_path} has already been performed. Continuing...\n")
         
         features_list = np.load(f'features_{num_of_classes}_classes.npy')
         file_names = np.load(f'wav_names_{num_of_classes}_classes.npy')

@@ -1,3 +1,5 @@
 *.wav
 *.csv
 *.pkl
+*.npy
+*.pyc
