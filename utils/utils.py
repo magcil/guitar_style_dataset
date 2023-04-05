@@ -1,4 +1,4 @@
-from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score
+from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score, StratifiedKFold
 from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
@@ -31,11 +31,11 @@ def kfold_cross_val(features_list, file_names, labels, fold):
     
     print(f"X_train shape: {X_train.shape} \nX_test shape: {X_test.shape}")
     
-    param_grid = {'C': [0.1, 1, 10], 'gamma': [0.001, 0.01, 0.1, 1,]}
+    param_grid = {'C': [0.1, 1, 10, 20, 40, 50, 100], 'gamma': [0.001, 0.01, 0.1, 1, 10]}
 
     svm_model = SVC(kernel='rbf')
-    kf = KFold(n_splits=fold, shuffle=True)
-    grid_search = GridSearchCV(svm_model, param_grid, cv=kf)
+    kf = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
+    grid_search = GridSearchCV(svm_model, param_grid, cv=kf, verbose=3)
 
     grid_search.fit(X_train, y_train)
     best_model = grid_search.best_estimator_
@@ -44,7 +44,6 @@ def kfold_cross_val(features_list, file_names, labels, fold):
     print(f"best model: {best_model}")
     
     # Predictions
-    
     preds = best_model.predict(X_test)
         
     print(f"Test score: {best_model.score(X_test, y_test)}")
