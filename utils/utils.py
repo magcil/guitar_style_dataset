@@ -31,9 +31,12 @@ def kfold_cross_val(features_list, file_names, labels, fold):
     
     print(f"X_train shape: {X_train.shape} \nX_test shape: {X_test.shape}")
     
-    param_grid = {'C': [0.1, 1, 10, 20, 40, 50, 100], 'gamma': [0.001, 0.01, 0.1, 1, 10]}
+    param_grid = {'C': [0.1, 1, 10, 20, 40, 50, 100], 
+                  'gamma': [0.001, 0.01, 0.1, 1, 10],
+                  'kernel': ['linear', 'rbf' ]
+                  }
 
-    svm_model = SVC(kernel='rbf')
+    svm_model = SVC()
     kf = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
     grid_search = GridSearchCV(svm_model, param_grid, cv=kf, verbose=3)
 
