@@ -3,7 +3,7 @@ from sklearn.metrics import classification_report
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 import numpy as np
-
+import pandas as pd
 
 def kfold_cross_val(features_list, file_names, labels, fold):
     """
@@ -51,3 +51,34 @@ def kfold_cross_val(features_list, file_names, labels, fold):
         
     print(f"Test score: {best_model.score(X_test, y_test)}")
     print(classification_report(y_test, preds))
+
+
+def leave_one_metadata_out(df: pd.DataFrame, fold):
+    unique_metadata = df[fold].unique().tolist()
+    
+    scaler = StandardScaler()
+    print(f"{fold}s: {unique_metadata}")
+    
+    for idx, metadata in enumerate(unique_metadata):
+        train_metadata = unique_metadata.copy()
+        train_metadata.remove(metadata)
+        print(f"{fold}s for {idx} training: {train_metadata}")
+        print(f"{fold} for {idx} test: {[metadata]}")
+
+        X_train = df[df[fold].isin(train_metadata)].iloc[:, 2:138]
+        y_train = df[df[fold].isin(train_metadata)]['label']
+        
+        X_test = df[df[fold].isin([metadata])].iloc[:, 2:138]
+        y_test = df[df[fold].isin([metadata])]['label']
+        
+        print(f"\n X_train: {len(X_train)} y_train: {len(y_train)}"+
+            f"\n X_test: {len(X_test)} y_test: {len(y_test)}\n")
+    
+        X_train = scaler.fit_transform(X_train)
+        X_test = scaler.transform(X_test)
+    
+    
+    
+    
+    
+
