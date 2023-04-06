@@ -10,13 +10,11 @@ from data_load.dataloading import data_preparation
 
 """_summary_
 
-python3 train.py -w '/media/antonia/Seagate/GitHub/guitar_style_dataset/toy/alternate picking' '/media/antonia/Seagate/GitHub/guitar_style_dataset/toy/legato' '/media/antonia/Seagate/GitHub/guitar_style_dataset/toy/sweep picking' '/media/antonia/Seagate/GitHub/guitar_style_dataset/toy/vibrato'
+python3 train.py -w '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/alternate picking' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/legato' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/tapping' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/sweep picking' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/vibrato' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/hammer on' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/pull off' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/slide' '/media/antonia/Seagate/GitHub/guitar_style_dataset/data/bend'
 
 Returns:
     _type_: _description_
 """
-
-
 
 
 def parse_arguments():
@@ -40,7 +38,6 @@ def parse_arguments():
         default="5",
         help="Choose between K-Fold (default: k=5) and Leave-One-Out (guitar or amplifier) cross-validation",
     )
-
     return parser.parse_args()
 
 
@@ -56,8 +53,5 @@ if __name__ == "__main__":
     # print("Guitar Style Classes: ", wav_path)
     
     data_preparation(wav_path, fold)
-    
-    
-    
     
     

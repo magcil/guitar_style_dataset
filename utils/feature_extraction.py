@@ -57,5 +57,5 @@ def feature_extractor(dirs: str,
     # shape_list contains the number of files in each class
     np.save(f'shapes_{num_of_classes}_classes.npy', shapes_list)
     
-    return features_list, class_names, file_names
+    return features_list, class_names, file_names, shapes_list
             
