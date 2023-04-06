@@ -6,7 +6,7 @@ import warnings
 import argparse
 import pandas as pd
 
-from data_load.dataloading import data_preparation
+from data_load.dataloading import data_preparation_and_train
 
 """_summary_
 
@@ -52,6 +52,6 @@ if __name__ == "__main__":
     
     # print("Guitar Style Classes: ", wav_path)
     
-    data_preparation(wav_path, fold)
+    data_preparation_and_train(wav_path, fold)
     
     

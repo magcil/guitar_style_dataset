@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils.feature_extraction import feature_extractor
-from utils.utils import kfold_cross_val
+from utils.utils import kfold_cross_val, leave_one_metadata_out
 import re
 
 class_mapping_dict = {
@@ -21,7 +21,7 @@ class_mapping_dict = {
 }
 
 
-def data_preparation(wav_path, fold):
+def data_preparation_and_train(wav_path, fold):
     
     num_of_classes = len(wav_path)
     
@@ -68,52 +68,16 @@ def data_preparation(wav_path, fold):
         df['guitar'] = df['file_name'].str.split('_').str[2]
         df['amplifier'] = df['file_name'].str.split('_').str[3]
         
-        unique_guitars = df['guitar'].unique().tolist()
         
-        print(f"Guitars: {unique_guitars}")
-        
-        for guitar in unique_guitars:
-            train_guitars = unique_guitars.copy()
-            train_guitars.remove(guitar)
-            print(f"Guitars for training: {train_guitars}")
-            print(f"Guitar for test: {[guitar]}")
-
-            X_train = df[df['guitar'].isin(train_guitars)].iloc[:, 2:138]
-            y_train = df[df['guitar'].isin(train_guitars)]['label']
-            
-            X_test = df[df['guitar'].isin([guitar])].iloc[:, 2:138]
-            y_test = df[df['guitar'].isin([guitar])]['label']
-            
-            print(f"\n X_train: {len(X_train)} y_train: {len(y_train)}"+
-                  f"\n X_test: {len(X_test)} y_test: {len(y_test)}\n")
-        
-        
-        print(df)
-        
-
-   
-    # elif fold=="guitar" or fold=="amplifier":
-    #     metadata_dict = {}
-    #     for folder_path in wav_path:            
-    #         for file_name in os.listdir(folder_path):
-    #             tmp = file_name.replace(".wav", "")
-    #             metadata_list = tmp.split("_")
+        if fold=="guitar" or fold=="amplifier" or fold=="amp":
+            if fold=="amp":
+                fold = "amplifier"
                 
-    #             # do not check 'exercise' in metadata list
-    #             if len(metadata_list) == 6:
-    #                 metadata_list.pop()
-    #             metadata_list.pop()
-    #             _, class_id, guitar, amp = metadata_list
-    #             # print(f"list: {guitar} and song name: {file_name}")
-                
-    #             if fold=="guitar":
-    #                 if guitar not in metadata_dict.keys():
-    #                     metadata_dict[guitar] = []
-    #                 metadata_dict[guitar].append(file_name)
-    #             elif fold=="amplifier" or fold=="amp":
-    #                 if amp not in metadata_dict.keys():
-    #                     metadata_dict[amp] = []
-    #                 metadata_dict[amp].append(file_name)
+            leave_one_metadata_out(df, fold)
+
+
+        # print(df)
+        
 
     else:
         raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")
