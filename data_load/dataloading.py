@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils.feature_extraction import feature_extractor
-from utils.utils import kfold_cross_val, leave_one_metadata_out, ready_folds_train
+from utils.utils import kfold_cross_val, leave_one_metadata_out, ready_folds_train, plot_cm
 import re
 
 class_mapping_dict = {
@@ -48,8 +48,12 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
     
     # STEP 2: cross-validation (k-fold or leave-one-out method)
     if ready_folds is not None:
-        ready_folds_train(file_names, labels, features_list, ready_folds)  
+        cm = ready_folds_train(file_names, labels, features_list, ready_folds)  
         print(class_mapping_dict)
+        class_names = list(class_mapping_dict.keys())
+        plot_cm(cm, class_names)
+        
+        
     else:
         if fold.isdigit():
             # features_list: list of feature vectors

@@ -7,6 +7,39 @@ import pandas as pd
 import os
 import sys
 import json
+import matplotlib.pyplot as plt
+
+def plot_cm(conf_matrix, class_names):
+
+    # Create a figure object and add a subplot
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+
+    # Plot the confusion matrix as an image
+    im = ax.imshow(conf_matrix, cmap='Blues')
+
+    # Add annotations to the image
+    for i in range(conf_matrix.shape[0]):
+        for j in range(conf_matrix.shape[1]):
+            ax.text(j, i, conf_matrix[i, j], ha='center', va='center', fontsize=8)
+
+    # Add a colorbar legend to the plot
+    fig.colorbar(im)
+
+    # Set the tick labels for the x-axis and y-axis
+    ax.set_xticklabels([''] + class_names, fontsize=8, rotation=45, ha='right')
+    ax.set_yticklabels([''] + class_names, fontsize=8)
+
+    # Set the labels for the x-axis and y-axis
+    plt.xlabel('Predicted', fontsize=10)
+    plt.ylabel('True', fontsize=10)
+
+    # Add a title to the plot
+    plt.title('Confusion Matrix', fontsize=12)
+
+    # Save the plot as an EPS file
+    plt.savefig(f'{len(class_names)}_class_confusion_matrix.eps', format='eps')
+    
 
 
 def kfold_cross_val(features_list, file_names, labels, fold):
@@ -86,7 +119,7 @@ def leave_one_metadata_out(df: pd.DataFrame, fold):
     
 
 def ready_folds_train(file_names, labels, features_list, ready_folds):
-    
+        
     try:
         with open(ready_folds) as f:
             folds = json.load(f)
@@ -168,9 +201,10 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         aggregated_cm = np.add(aggregated_cm, fold_cm)
         print(f"Confusion matrix: \n{fold_cm}")
     
-    print(f"################## AGGREGATED RESULTS ##################")
+    print(f"\n################## AGGREGATED RESULTS ##################")
     
     aggregated_score = round(aggregated_score / len(folds)*100,2)
     print(f"Aggregated test accuracy ({len(folds)} folds): {aggregated_score}%\n")
     print(aggregated_cm)
-        
+
+    return aggregated_cm
