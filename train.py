@@ -56,9 +56,10 @@ if __name__ == "__main__":
     fold = args.fold
     ready_folds = args.ready_folds
     
-    wav_path = [item for sublist in wav_path for item in sublist]
-
-    data_preparation_and_train(wav_path, fold, ready_folds)
     print("Guitar Style Classes: ", wav_path)
+    
+    wav_path = [item for sublist in wav_path for item in sublist]
+    data_preparation_and_train(wav_path, fold, ready_folds)
+    
         
     
