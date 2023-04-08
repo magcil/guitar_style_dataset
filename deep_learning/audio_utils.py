@@ -8,3 +8,18 @@ def extract_mel_spectrogram(
     S = librosa.feature.melspectrogram(y=signal, sr=sr, n_fft=n_fft, hop_length=hop_length, n_mels=n_mels)
     # convert to dB for log-power mel-spectrograms
     return librosa.power_to_db(S, ref=np.max)
+
+def get_label(filename:str) -> str:
+    prev_str = 'class_'
+    idx = filename.rfind(prev_str)
+    idx += len(prev_str)
+    label = filename[idx]
+    return label
+
+filename = 'class_0_other_Stuff'
+label = get_label(filename)
+print(label)
+# seq = 'class_'
+# i = filename.rfind(seq)
+# print(f'I: {i+len(seq)}')
+# print(f'class-> {filename[i+len(seq)]}')
