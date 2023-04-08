@@ -15,11 +15,3 @@ def get_label(filename:str) -> str:
     idx += len(prev_str)
     label = filename[idx]
     return label
-
-filename = 'class_0_other_Stuff'
-label = get_label(filename)
-print(label)
-# seq = 'class_'
-# i = filename.rfind(seq)
-# print(f'I: {i+len(seq)}')
-# print(f'class-> {filename[i+len(seq)]}')
