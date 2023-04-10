@@ -116,7 +116,7 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
             folds = json.load(f)
     except ValueError:
         print(f"{ready_folds} is not a valid JSON file.")
-        
+    
     # create a dataframe from the data and the features
     file_names = [os.path.basename(wav_name) for wav_name in file_names]
     df = pd.DataFrame({
@@ -132,9 +132,6 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
                 'gamma': [0.001, 0.01, 0.1, 1, 10],
                 'kernel': ['linear', 'rbf'],
                 }
-    
-    svm = SVC()  
-    grid_search = GridSearchCV(svm, param_grid, scoring='f1_macro')
     
     aggregated_cm = np.zeros((9, 9), dtype=int)
     aggregated_score = 0.0
@@ -178,40 +175,42 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
 
         # train the model
         # clf = SVC(kernel='linear', random_state=42)
-        clf = LinearSVC()
-        clf.fit(X_train, y_train)
-        y_pred = clf.predict(X_test)
-        test_score = accuracy_score(y_test, y_pred)
+        # clf = LinearSVC()
+        # clf.fit(X_train, y_train)
+        # y_pred = clf.predict(X_test)
+        # test_score = accuracy_score(y_test, y_pred)
         
-        print(f"Test score: {test_score}")
-        print(f"SVM parameters: {clf.get_params()}")
-        aggregated_score += test_score
-        
-        print(classification_report(y_test, y_pred))
-        
-        fold_cm = confusion_matrix(y_test, y_pred)
-        aggregated_cm = np.add(aggregated_cm, fold_cm)
-        print(f"Confusion matrix: \n{fold_cm}")
-        
-        # grid_search.fit(X_train, y_train)
-        
-        # print(f"Training score: {grid_search.score(X_train, y_train)}")
-        
-        # print(f'\nBest parameters for split {i}: {grid_search.best_params_}')
-
-        # best_model = grid_search.best_estimator_
-        # preds = best_model.predict(X_test)
-        
-        # test_score = best_model.score(X_test, y_test)
         # print(f"Test score: {test_score}")
-        
+        # print(f"SVM parameters: {clf.get_params()}")
         # aggregated_score += test_score
         
-        # print(classification_report(y_test, preds))
+        # print(classification_report(y_test, y_pred))
         
-        # fold_cm = confusion_matrix(y_test, preds)
+        # fold_cm = confusion_matrix(y_test, y_pred)
         # aggregated_cm = np.add(aggregated_cm, fold_cm)
         # print(f"Confusion matrix: \n{fold_cm}")
+        
+        svm = SVC()  
+        grid_search = GridSearchCV(svm, param_grid, scoring='f1_macro')
+        
+        grid_search.fit(X_train, y_train)
+        
+        print(f"Training score: {grid_search.score(X_train, y_train)}")
+        print(f'\nBest parameters for split {i}: {grid_search.best_params_}')
+
+        best_model = grid_search.best_estimator_
+        preds = best_model.predict(X_test)
+        
+        test_score = best_model.score(X_test, y_test)
+        print(f"Test score: {test_score}")
+        
+        aggregated_score += test_score
+        
+        print(classification_report(y_test, preds))
+        
+        fold_cm = confusion_matrix(y_test, preds)
+        aggregated_cm = np.add(aggregated_cm, fold_cm)
+        print(f"Confusion matrix: \n{fold_cm}")
     
     print(f"\n################## AGGREGATED RESULTS ##################")
     

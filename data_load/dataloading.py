@@ -36,10 +36,13 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
         shapes_list = np.load(f'shapes_{num_of_classes}_classes.npy')
     else:
         features_list, class_names, file_names, shapes_list = feature_extractor(wav_path, num_of_classes)
-        
+        print(type(features_list))
+        features_list = np.array(features_list)
+       
     if len(features_list) > 0:
+        print(wav_path)
         label_mapping = [class_mapping_dict[path.split('/')[-1]] for path in wav_path]
-        
+        print(label_mapping)
         labels = []
         # create list of labels
         for count, name in zip(shapes_list, label_mapping):
@@ -52,7 +55,9 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
         cm = ready_folds_train(file_names, labels, features_list, ready_folds)  
         print(class_mapping_dict)
         class_names = list(class_mapping_dict.keys())
+        print("class_names: ", class_names)
         plot_cm(cm, class_names)
+        
     else:
         if fold.isdigit():
             # features_list: list of feature vectors
