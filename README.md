@@ -17,14 +17,15 @@ pip3 install -r requirements.txt
 
 ## 2. Train
 
-The basic script is the `train.py`. 
+The basic script is the `train.py`. To train an `SVM` model on the data, run the following script:
+```
+python3 train.py -d data/wav/
+```
+
+> where `data/wav` is the directory which contains the class-folders with the wav files.
+
+You can use the flag `-rf` to work with predefined folds described in `data/folds.json`.
 
 ```
-python3 train.py -w '/guitar_style_dataset/data/alternate picking' '/guitar_style_dataset/data/legato' '/guitar_style_dataset/data/tapping' '/guitar_style_dataset/data/sweep picking' '/GitHub/guitar_style_dataset/data/vibrato' '/guitar_style_dataset/data/hammer on' '/guitar_style_dataset/data/pull off' '/guitar_style_dataset/data/slide' '/guitar_style_dataset/data/bend'
-```
-
-You can use the flag `-rf` to work with predefined folds described in `folds.json`.
-
-```
-python3 train.py -w '/guitar_style_dataset/data/alternate picking' '/guitar_style_dataset/data/legato' '/guitar_style_dataset/data/tapping' '/guitar_style_dataset/data/sweep picking' '/GitHub/guitar_style_dataset/data/vibrato' '/guitar_style_dataset/data/hammer on' '/guitar_style_dataset/data/pull off' '/guitar_style_dataset/data/slide' '/guitar_style_dataset/data/bend' -rf folds.json
+python3 train.py -d data/wav -rf data/folds.json
 ```
