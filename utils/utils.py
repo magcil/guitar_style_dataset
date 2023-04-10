@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.preprocessing import StandardScaler
-from sklearn.svm import SVC
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.svm import SVC, LinearSVC
 import numpy as np
 import pandas as pd
 import os
@@ -9,13 +9,11 @@ import sys
 import json
 import matplotlib.pyplot as plt
 
-def plot_cm(conf_matrix, class_names):
 
-    # Create a figure object and add a subplot
+def plot_cm(conf_matrix, class_names):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot(111)
 
-    # Plot the confusion matrix as an image
     im = ax.imshow(conf_matrix, cmap='Blues')
 
     # Add annotations to the image
@@ -25,21 +23,15 @@ def plot_cm(conf_matrix, class_names):
 
     # Add a colorbar legend to the plot
     fig.colorbar(im)
-
-    # Set the tick labels for the x-axis and y-axis
     ax.set_xticklabels([''] + class_names, fontsize=8, rotation=45, ha='right')
     ax.set_yticklabels([''] + class_names, fontsize=8)
-
-    # Set the labels for the x-axis and y-axis
     plt.xlabel('Predicted', fontsize=10)
     plt.ylabel('True', fontsize=10)
 
-    # Add a title to the plot
-    plt.title('Confusion Matrix', fontsize=12)
+    plt.title('Aggregated Confusion Matrix', fontsize=12)
 
     # Save the plot as an EPS file
     plt.savefig(f'{len(class_names)}_class_confusion_matrix.eps', format='eps')
-    
 
 
 def kfold_cross_val(features_list, file_names, labels, fold):
@@ -119,14 +111,13 @@ def leave_one_metadata_out(df: pd.DataFrame, fold):
     
 
 def ready_folds_train(file_names, labels, features_list, ready_folds):
-        
     try:
         with open(ready_folds) as f:
             folds = json.load(f)
     except ValueError:
         print(f"{ready_folds} is not a valid JSON file.")
         
-    # 1st col: wav_names, 2nd col: labels, the rest cols represent the features
+    # create a dataframe from the data and the features
     file_names = [os.path.basename(wav_name) for wav_name in file_names]
     df = pd.DataFrame({
         'file_name': file_names,
@@ -137,13 +128,14 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
     df = pd.concat([df, features_list], axis=1)
     
     scaler = StandardScaler()
-    param_grid = {'C': [0.1, 1, 10, 20, 40, 50, 100], 
+    param_grid = {'C': [0.01, 0.1, 1, 10, 20, 40, 50, 100], 
                 'gamma': [0.001, 0.01, 0.1, 1, 10],
-                'kernel': ['linear', 'rbf' ]
+                'kernel': ['linear', 'rbf'],
                 }
-        
+    
     svm = SVC()  
     grid_search = GridSearchCV(svm, param_grid, scoring='f1_macro')
+    
     aggregated_cm = np.zeros((9, 9), dtype=int)
     aggregated_score = 0.0
     
@@ -154,7 +146,7 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         
         X_test = []
         y_test = []
-        
+
         train_files = folds[f'fold_{i}']['train']
         test_files = folds[f'fold_{i}']['test']
         
@@ -180,26 +172,46 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
         
-        print(f"X_train_shape: {X_train.shape} y_train_shape: {y_train.shape}")
-        print(f"X_test_shape: {X_test.shape} y_test_shape: {y_test.shape}")
+        # print(f"X_train_shape: {X_train.shape} y_train_shape: {y_train.shape}")
+        # print(f"X_test_shape: {X_test.shape} y_test_shape: {y_test.shape}")
 
-        grid_search.fit(X_train, y_train)
-        
-        print(f'\nBest parameters for split {i}: {grid_search.best_params_}')
 
-        best_model = grid_search.best_estimator_
-        preds = best_model.predict(X_test)
+        # train the model
+        # clf = SVC(kernel='linear', random_state=42)
+        clf = LinearSVC()
+        clf.fit(X_train, y_train)
+        y_pred = clf.predict(X_test)
+        test_score = accuracy_score(y_test, y_pred)
         
-        test_score = best_model.score(X_test, y_test)
         print(f"Test score: {test_score}")
-        
+        print(f"SVM parameters: {clf.get_params()}")
         aggregated_score += test_score
         
-        print(classification_report(y_test, preds))
+        print(classification_report(y_test, y_pred))
         
-        fold_cm = confusion_matrix(y_test, preds)
+        fold_cm = confusion_matrix(y_test, y_pred)
         aggregated_cm = np.add(aggregated_cm, fold_cm)
         print(f"Confusion matrix: \n{fold_cm}")
+        
+        # grid_search.fit(X_train, y_train)
+        
+        # print(f"Training score: {grid_search.score(X_train, y_train)}")
+        
+        # print(f'\nBest parameters for split {i}: {grid_search.best_params_}')
+
+        # best_model = grid_search.best_estimator_
+        # preds = best_model.predict(X_test)
+        
+        # test_score = best_model.score(X_test, y_test)
+        # print(f"Test score: {test_score}")
+        
+        # aggregated_score += test_score
+        
+        # print(classification_report(y_test, preds))
+        
+        # fold_cm = confusion_matrix(y_test, preds)
+        # aggregated_cm = np.add(aggregated_cm, fold_cm)
+        # print(f"Confusion matrix: \n{fold_cm}")
     
     print(f"\n################## AGGREGATED RESULTS ##################")
     

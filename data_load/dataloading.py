@@ -8,6 +8,7 @@ from utils.feature_extraction import feature_extractor
 from utils.utils import kfold_cross_val, leave_one_metadata_out, ready_folds_train, plot_cm
 import re
 
+
 class_mapping_dict = {
     'alternate picking': 0,
     'legato': 1,
@@ -52,8 +53,6 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
         print(class_mapping_dict)
         class_names = list(class_mapping_dict.keys())
         plot_cm(cm, class_names)
-        
-        
     else:
         if fold.isdigit():
             # features_list: list of feature vectors
