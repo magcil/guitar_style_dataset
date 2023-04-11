@@ -5,3 +5,7 @@
 *.pyc
 *.json
 *.eps
+*.pt
+*.png
+*.ipynb
+*.txt
