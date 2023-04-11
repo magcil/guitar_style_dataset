@@ -154,7 +154,7 @@ def validate_on_test(output_path, model_path='pkl/technique_classifier.pt'):
     test_songs = crawl_directory(test_path)
     with open(model_path, 'rb') as f:
         model_params = pickle.load(f)
-    class_mapping = model_params['classes_mapping']
+    model_class_mapping = model_params['classes_mapping']
 
     for song in test_songs:
         if os.path.basename(song) == 'temp_trimmed.wav':
@@ -168,11 +168,11 @@ def validate_on_test(output_path, model_path='pkl/technique_classifier.pt'):
             results.append((counts[i], p_aggregated[i], i))
         results = sorted(results, key=lambda x: (x[0], x[1]), reverse=True)
         pred_label = results[0][-1]
-        y_pred.append(class_mapping[pred_label])
-        song_label = int(os.path.basename(song).split('_')[1])
-        y_true.append(class_mapping[song_label])
+        y_pred.append(model_class_mapping[pred_label])
+        true_label = int(os.path.basename(song).split('_')[1])
+        y_true.append(CLASS_MAPPING[true_label])
         print(
-            f'True: {class_mapping[song_label]} | Pred: {class_mapping[pred_label]}' +
+            f'True: {CLASS_MAPPING[true_label]} | Pred: {model_class_mapping[pred_label]}' +
             f'| Prob: {results[0][1]} | Counts: {results[0][0]}'
         )
 

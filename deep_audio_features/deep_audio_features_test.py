@@ -67,9 +67,7 @@ if __name__ == '__main__':
         y_true, y_pred = validate_on_test(output_path)
         labels = CLASSES
         cm = confusion_matrix(y_true, y_pred, labels=labels)
-        print(cm)
         aggregated_cm = np.add(aggregated_cm, cm)
-        print(aggregated_cm)
         acc = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred, average='macro', zero_division=0, labels=labels)
         recall = recall_score(y_true, y_pred, average='macro', zero_division=0, labels=labels)
@@ -94,7 +92,8 @@ if __name__ == '__main__':
     final_results = f'Mean Accuracy: {100 * sum(accs) / len(accs)}\n' + \
     f'Mean Precision: {100 * sum(precisions) / len(precisions)}\n' + \
     f'Mean Recall: {100 * sum(recalls) / len(recalls)}\n' + \
-    f'Mean F1 score: {100 * sum(f1_scores) / len(f1_scores)}\n'
+    f'Mean F1 score: {100 * sum(f1_scores) / len(f1_scores)}\n' + \
+    f'Std F1 score: {100 * np.std(f1_scores)}\n'
 
     logs.append(final_results)
     print(final_results)
