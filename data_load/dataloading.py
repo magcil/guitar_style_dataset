@@ -6,7 +6,6 @@ import pandas as pd
 
 from utils.feature_extraction import feature_extractor
 from utils.utils import kfold_cross_val, leave_one_metadata_out, ready_folds_train, plot_cm
-import re
 
 
 class_mapping_dict = {
@@ -21,8 +20,7 @@ class_mapping_dict = {
     'bend': 8 
 }
 
-
-def data_preparation_and_train(wav_path, fold, ready_folds=None):
+def data_preparation_and_train(wav_path, fold, ready_folds=None, metada_folds=None):
     
     num_of_classes = len(wav_path)
     
@@ -36,13 +34,10 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
         shapes_list = np.load(f'shapes_{num_of_classes}_classes.npy')
     else:
         features_list, class_names, file_names, shapes_list = feature_extractor(wav_path, num_of_classes)
-        print(type(features_list))
         features_list = np.array(features_list)
        
     if len(features_list) > 0:
-        print(wav_path)
         label_mapping = [class_mapping_dict[path.split('/')[-1]] for path in wav_path]
-        print(label_mapping)
         labels = []
         # create list of labels
         for count, name in zip(shapes_list, label_mapping):
@@ -53,42 +48,45 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None):
     # STEP 2: cross-validation (k-fold or leave-one-out method)
     if ready_folds is not None:
         cm = ready_folds_train(file_names, labels, features_list, ready_folds)  
-        print(class_mapping_dict)
         class_names = list(class_mapping_dict.keys())
-        print("class_names: ", class_names)
+        
         plot_cm(cm, class_names)
         
-    else:
-        if fold.isdigit():
-            # features_list: list of feature vectors
-            # labels: list of labels
-            fold = int(fold)
-            kfold_cross_val(features_list, file_names, labels, fold)
-        
-        elif fold=="guitar" or fold=="amplifier" or fold=="amp":
-            # 1st col: wav_names, 2nd col: labels, the rest cols represent the features
-            file_names = [os.path.basename(wav_name) for wav_name in file_names]
-            df = pd.DataFrame({
-                'file_name': file_names,
-                'label': labels
-            })
-            
-            features_list = pd.DataFrame(features_list.tolist())
-            df = pd.concat([df, features_list], axis=1)
-            
-            # add 2 columns for guitar and amplifier names
-            df['guitar'] = df['file_name'].str.split('_').str[2]
-            df['amplifier'] = df['file_name'].str.split('_').str[3]
-            
-            
-            if fold=="guitar" or fold=="amplifier" or fold=="amp":
-                if fold=="amp":
-                    fold = "amplifier"
-                    
-                leave_one_metadata_out(df, fold)
-                print(class_mapping_dict)
-                
-            # print(df)
+    elif metada_folds is not None:
+        leave_one_metadata_out(file_names, labels, features_list, metada_folds)
 
-        else:
-            raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")
+    
+    
+    # else:
+    #     if fold.isdigit():
+    #         # features_list: list of feature vectors
+    #         # labels: list of labels
+    #         fold = int(fold)
+    #         kfold_cross_val(features_list, file_names, labels, fold)
+        
+    #     elif fold=="guitar" or fold=="amplifier" or fold=="amp":
+    #         # 1st col: wav_names, 2nd col: labels, the rest cols represent the features
+    #         file_names = [os.path.basename(wav_name) for wav_name in file_names]
+    #         df = pd.DataFrame({
+    #             'file_name': file_names,
+    #             'label': labels
+    #         })
+            
+    #         features_list = pd.DataFrame(features_list.tolist())
+    #         df = pd.concat([df, features_list], axis=1)
+            
+    #         # add 2 columns for guitar and amplifier names
+    #         df['guitar'] = df['file_name'].str.split('_').str[2]
+    #         df['amplifier'] = df['file_name'].str.split('_').str[3]
+            
+    #         if fold=="guitar" or fold=="amplifier" or fold=="amp":
+    #             if fold=="amp":
+    #                 fold = "amplifier"
+                    
+    #             leave_one_metadata_out(df, fold)
+    #             print(class_mapping_dict)
+                
+    #         # print(df)
+
+    #     else:
+    #         raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")

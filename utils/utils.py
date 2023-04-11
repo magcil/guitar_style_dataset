@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, make_scorer, f1_score
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.svm import SVC, LinearSVC
 import numpy as np
@@ -23,7 +23,9 @@ def plot_cm(conf_matrix, class_names):
 
     # Add a colorbar legend to the plot
     fig.colorbar(im)
+    ax.set_xticks(range(len(class_names)))
     ax.set_xticklabels([''] + class_names, fontsize=8, rotation=45, ha='right')
+    ax.set_yticks(range(len(class_names)))
     ax.set_yticklabels([''] + class_names, fontsize=8)
     plt.xlabel('Predicted', fontsize=10)
     plt.ylabel('True', fontsize=10)
@@ -85,30 +87,99 @@ def kfold_cross_val(features_list, file_names, labels, fold):
     print(f"Confusion matrix: \n{cm}")
     
 
-def leave_one_metadata_out(df: pd.DataFrame, fold):
-    unique_metadata = df[fold].unique().tolist()
+def create_df(file_names, labels, features_list):
+    file_names = [os.path.basename(wav_name) for wav_name in file_names]
+    df = pd.DataFrame({
+        'file_name': file_names,
+        'label': labels
+    })
+    features_list = pd.DataFrame(features_list.tolist())
+    df = pd.concat([df, features_list], axis=1)
+    
+    return df
+
+
+def leave_one_metadata_out(file_names, labels, features_list, metada_folds):
+    try:
+        with open(metada_folds) as f:
+            mt_folds = json.load(f)
+    except ValueError:
+        print(f"{metada_folds} is not a valid JSON file.")
+        
+    if 'guitar' in metada_folds.lower():
+        print("Leaving one guitar out...\n")
+    elif 'amplifier' in metada_folds.lower():
+        print("Leaving one amplifier out...\n")
+
+    df = create_df(file_names, labels, features_list) 
     
     scaler = StandardScaler()
-    print(f"{fold}s: {unique_metadata}")
+    f1_macro_scorer = make_scorer(f1_score, average='macro')
+    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
+                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
+                  'kernel': ['rbf'],
+                 }
     
-    for idx, metadata in enumerate(unique_metadata):
-        train_metadata = unique_metadata.copy()
-        train_metadata.remove(metadata)
-        print(f"{fold}s for {idx} training: {train_metadata}")
-        print(f"{fold} for {idx} test: {[metadata]}")
+    aggregated_cm = np.zeros((9, 9), dtype=int)
 
-        X_train = df[df[fold].isin(train_metadata)].iloc[:, 2:138]
-        y_train = df[df[fold].isin(train_metadata)]['label']
-        
-        X_test = df[df[fold].isin([metadata])].iloc[:, 2:138]
-        y_test = df[df[fold].isin([metadata])]['label']
-        
-        print(f"\n X_train: {len(X_train)} y_train: {len(y_train)}"+
-            f"\n X_test: {len(X_test)} y_test: {len(y_test)}\n")
+    acc_scores = []
+    f1_scores = []
+
     
+    for i, key in enumerate(mt_folds.keys()):
+        print(f"\n========================= FOLD {i+1}  =========================\n")
+        
+        metadata_list = mt_folds[key]
+                
+        mask = df['file_name'].isin(metadata_list)
+        
+        X_test = df[mask].iloc[:, 2:].values
+        y_test = df[mask]['label'].values
+        X_train = df[~mask].iloc[:, 2:].values
+        y_train = df[~mask]['label'].values
+        
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
+                
+        print(f"X_train_shape: {X_train.shape} y_train_shape: {y_train.shape}")
+        print(f"X_test_shape: {X_test.shape} y_test_shape: {y_test.shape}")
+        
+        svm = SVC(random_state=40)  
+        grid_search = GridSearchCV(svm, param_grid, scoring=f1_macro_scorer)
+        
+        grid_search.fit(X_train, y_train)
+        print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+        
+        # best_model = grid_search.best_estimator_
+        y_pred = grid_search.predict(X_test)        
+        
+        f1_macro_fold = grid_search.score(X_test, y_test)
+        acc_fold = accuracy_score(y_test, y_pred)
+        fold_cm = confusion_matrix(y_test, y_pred)
+        
+        f1_scores.append(f1_macro_fold)
+        acc_scores.append(acc_fold)
+        aggregated_cm = np.add(aggregated_cm, fold_cm)
+        
+        print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+        print(f"Accuracy for fold {i+1}: {acc_fold}")        
+        print(classification_report(y_test, y_pred))
+        print(f"Confusion matrix: \n{fold_cm}")
     
+    print(f"\n################## AGGREGATED RESULTS ##################\n")
+    
+    agg_f1_scores = round(np.mean(f1_scores)*100, 2)
+    agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
+    
+    agg_acc_scores = round(np.mean(acc_scores)*100, 2)
+    agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
+    
+    print(f"Aggregated f1-macro score ({len(mt_folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}\n")
+    print(f"Aggregated accuracy score ({len(mt_folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}\n")
+    print(aggregated_cm)
+
+    return aggregated_cm
+
 
 def ready_folds_train(file_names, labels, features_list, ready_folds):
     try:
@@ -116,31 +187,25 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
             folds = json.load(f)
     except ValueError:
         print(f"{ready_folds} is not a valid JSON file.")
-    
-    # create a dataframe from the data and the features
-    file_names = [os.path.basename(wav_name) for wav_name in file_names]
-    df = pd.DataFrame({
-        'file_name': file_names,
-        'label': labels
-    })
-    
-    features_list = pd.DataFrame(features_list.tolist())
-    df = pd.concat([df, features_list], axis=1)
-    
+
+    df = create_df(file_names, labels, features_list)   
+     
     scaler = StandardScaler()
-    param_grid = {'C': [0.01, 0.1, 1, 10, 20, 40, 50, 100], 
-                'gamma': [0.001, 0.01, 0.1, 1, 10],
-                'kernel': ['linear', 'rbf'],
-                }
+    f1_macro_scorer = make_scorer(f1_score, average='macro')
+    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
+                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
+                  'kernel': ['rbf'],
+                 }
     
     aggregated_cm = np.zeros((9, 9), dtype=int)
-    aggregated_score = 0.0
-    
+
+    acc_scores = []
+    f1_scores = []
+
     for i in range(len(folds)):
         print(f"\n========================= FOLD {i+1}  =========================\n")
         X_train = []
         y_train = []
-        
         X_test = []
         y_test = []
 
@@ -168,54 +233,39 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
-        
-        # print(f"X_train_shape: {X_train.shape} y_train_shape: {y_train.shape}")
-        # print(f"X_test_shape: {X_test.shape} y_test_shape: {y_test.shape}")
 
-
-        # train the model
-        # clf = SVC(kernel='linear', random_state=42)
-        # clf = LinearSVC()
-        # clf.fit(X_train, y_train)
-        # y_pred = clf.predict(X_test)
-        # test_score = accuracy_score(y_test, y_pred)
-        
-        # print(f"Test score: {test_score}")
-        # print(f"SVM parameters: {clf.get_params()}")
-        # aggregated_score += test_score
-        
-        # print(classification_report(y_test, y_pred))
-        
-        # fold_cm = confusion_matrix(y_test, y_pred)
-        # aggregated_cm = np.add(aggregated_cm, fold_cm)
-        # print(f"Confusion matrix: \n{fold_cm}")
-        
-        svm = SVC()  
-        grid_search = GridSearchCV(svm, param_grid, scoring='f1_macro')
+        svm = SVC(random_state=40)  
+        grid_search = GridSearchCV(svm, param_grid, scoring=f1_macro_scorer)
         
         grid_search.fit(X_train, y_train)
+        print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
         
-        print(f"Training score: {grid_search.score(X_train, y_train)}")
-        print(f'\nBest parameters for split {i}: {grid_search.best_params_}')
-
-        best_model = grid_search.best_estimator_
-        preds = best_model.predict(X_test)
+        # best_model = grid_search.best_estimator_
+        y_pred = grid_search.predict(X_test)        
         
-        test_score = best_model.score(X_test, y_test)
-        print(f"Test score: {test_score}")
+        f1_macro_fold = grid_search.score(X_test, y_test)
+        acc_fold = accuracy_score(y_test, y_pred)
+        fold_cm = confusion_matrix(y_test, y_pred)
         
-        aggregated_score += test_score
-        
-        print(classification_report(y_test, preds))
-        
-        fold_cm = confusion_matrix(y_test, preds)
+        f1_scores.append(f1_macro_fold)
+        acc_scores.append(acc_fold)
         aggregated_cm = np.add(aggregated_cm, fold_cm)
+        
+        print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+        print(f"Accuracy for fold {i+1}: {acc_fold}")        
+        print(classification_report(y_test, y_pred))
         print(f"Confusion matrix: \n{fold_cm}")
     
-    print(f"\n################## AGGREGATED RESULTS ##################")
+    print(f"\n################## AGGREGATED RESULTS ##################\n")
     
-    aggregated_score = round(aggregated_score / len(folds)*100,2)
-    print(f"Aggregated test accuracy ({len(folds)} folds): {aggregated_score}%\n")
+    agg_f1_scores = round(np.mean(f1_scores)*100, 2)
+    agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
+    
+    agg_acc_scores = round(np.mean(acc_scores)*100, 2)
+    agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
+    
+    print(f"Aggregated f1-macro score ({len(folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}\n")
+    print(f"Aggregated accuracy score ({len(folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}\n")
     print(aggregated_cm)
 
     return aggregated_cm

@@ -25,7 +25,7 @@ def parse_arguments():
         "--data_path", 
         required=True, 
         type=str,
-        help="The paths to the directories containing the WAV files.")
+        help="The path to the directories containing the WAV files.")
     
     parser.add_argument(
         "-f",
@@ -43,6 +43,14 @@ def parse_arguments():
         help="The directory with the predifined folds."
     )
     
+    parser.add_argument(
+        "-mf",
+        "--metadata_folds",
+        type=str,
+        required=False,
+        help="The directory with the guitar or amplifier folds."
+    )
+    
     return parser.parse_args()
 
 
@@ -53,16 +61,16 @@ if __name__ == "__main__":
     data_path = args.data_path
     fold = args.fold
     ready_folds = args.ready_folds
-
-    print("Guitar Style Classes: ", data_path)
+    metadata_folds = args.metadata_folds
     
     class_folders = []
     
     for folder in os.listdir(data_path):
+        # TODO: check if folder exists and if it consists of wav files
         if os.path.isdir(os.path.join(data_path, folder)):
             class_folders.append(os.path.join(data_path, folder))
     
-    print("Classes: ", class_folders)
-    data_preparation_and_train(class_folders, fold, ready_folds)
+    print("Guitar Style Classes: ", class_folders)
+    data_preparation_and_train(class_folders, fold, ready_folds, metadata_folds)
     
     
