@@ -2,10 +2,19 @@ import argparse
 import json
 import os
 import shutil
+import sys
 
-from sklearn.metrics import accuracy_score, recall_score, precision_score, classification_report
+from sklearn.metrics import accuracy_score, recall_score, precision_score, classification_report, confusion_matrix
+import numpy as np
 
 from deep_audio_utils import prepare_dirs, deep_audio_training, validate_on_test, crawl_directory
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.utils import plot_cm
+
+CLASSES = [
+    'alternate picking', 'legato', 'tapping', 'sweep picking', 'vibrato', 'hammer on', 'pull off', 'slide', 'bend'
+]
 
 
 def parse_args():
@@ -30,6 +39,7 @@ if __name__ == '__main__':
     segment_size = args.segment_size
     output_path = args.output_dir_path
     logs = []
+    aggregated_cm = np.zeros((9, 9), dtype=np.int64)
 
     with open(json_file, 'r') as f:
         splits = json.load(f)
@@ -55,7 +65,11 @@ if __name__ == '__main__':
         print('Training starts...')
         deep_audio_training(output_path)
         y_true, y_pred = validate_on_test(output_path)
-        labels = list(set(y_true))
+        labels = CLASSES
+        cm = confusion_matrix(y_true, y_pred, labels=labels)
+        print(cm)
+        aggregated_cm = np.add(aggregated_cm, cm)
+        print(aggregated_cm)
         acc = accuracy_score(y_true, y_pred)
         precision = precision_score(y_true, y_pred, average='macro', zero_division=0, labels=labels)
         recall = recall_score(y_true, y_pred, average='macro', zero_division=0, labels=labels)
@@ -87,3 +101,6 @@ if __name__ == '__main__':
 
     with open('deep_audio_results.txt', 'w') as f:
         f.writelines(logs)
+
+    # Confusion matrix
+    plot_cm(conf_matrix=aggregated_cm, class_names=CLASSES)
