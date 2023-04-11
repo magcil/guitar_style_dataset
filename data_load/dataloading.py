@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from utils.feature_extraction import feature_extractor
-from utils.utils import kfold_cross_val, leave_one_metadata_out, ready_folds_train, plot_cm
+from utils.utils import kfold_cross_val, custom_folds_train, plot_cm
 
 
 class_mapping_dict = {
@@ -20,14 +20,16 @@ class_mapping_dict = {
     'bend': 8 
 }
 
-def data_preparation_and_train(wav_path, fold, ready_folds=None, metada_folds=None):
+
+def data_preparation_and_train(wav_path, fold, json_folds=None):
     
     num_of_classes = len(wav_path)
     
     # STEP 1: feature extraction process
     if os.path.exists(f'features_{num_of_classes}_classes.npy'):
         # check if feature extraction has already been performed
-        print(f"\nFeature extraction for {wav_path} has already been performed. Continuing...\n")
+        wav_classes = [os.path.basename(folder) for folder in wav_path]
+        print(f"\nFeature extraction for {wav_classes} has already been performed. Continuing...\n")
         
         features_list = np.load(f'features_{num_of_classes}_classes.npy')
         file_names = np.load(f'wav_names_{num_of_classes}_classes.npy')
@@ -35,32 +37,26 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None, metada_folds=No
     else:
         features_list, class_names, file_names, shapes_list = feature_extractor(wav_path, num_of_classes)
         features_list = np.array(features_list)
-       
-    if len(features_list) > 0:
+    
+    if (features_list.shape[0]) > 0:
         label_mapping = [class_mapping_dict[path.split('/')[-1]] for path in wav_path]
         labels = []
-        # create list of labels
-        for count, name in zip(shapes_list, label_mapping):
-            labels.extend([name]*count)
+        # create list of labels (labels as many as the shapes (from shapes_list))
+        for count, label in zip(shapes_list, label_mapping):
+            labels.extend([label]*count)
     else:
         raise ValueError("Features' list does not contain elements.")
     
     # STEP 2: cross-validation (k-fold or leave-one-out method)
-    if ready_folds is not None:
-        cm = ready_folds_train(file_names, labels, features_list, ready_folds)  
+    if json_folds is not None:
+        # leave-one-guitar/amplifier/exercise out
+        cm = custom_folds_train(file_names, labels, features_list, json_folds)  
         class_names = list(class_mapping_dict.keys())
-        
-        plot_cm(cm, class_names)
-        
-    elif metada_folds is not None:
-        cm = leave_one_metadata_out(file_names, labels, features_list, metada_folds)
-        class_names = list(class_mapping_dict.keys())
-        plot_cm(cm, class_names, folds=metada_folds)
+        plot_cm(cm, class_names, json_folds)
     
     else:
         if fold.isdigit():
-            # features_list: list of feature vectors
-            # labels: list of labels
+            # random kfold
             fold = int(fold)
             cm = kfold_cross_val(file_names, labels, features_list, fold)
             class_names = list(class_mapping_dict.keys())

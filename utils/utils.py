@@ -8,6 +8,7 @@ import os
 import sys
 import json
 import matplotlib.pyplot as plt
+import contextlib
 
 
 def plot_cm(conf_matrix, class_names, folds=None):
@@ -25,30 +26,53 @@ def plot_cm(conf_matrix, class_names, folds=None):
     fig.colorbar(im)
     ax.set_xticklabels([''] + class_names, fontsize=8, rotation=45, ha='right')
     ax.set_yticklabels([''] + class_names, fontsize=8)
+    
     plt.xlabel('Predicted', fontsize=10)
     plt.ylabel('True', fontsize=10)
 
     if folds is not None:
         if 'guitar' in folds.lower():
-            plt.title('Guitar-Aggregated Confusion Matrix', fontsize=12)
+            plt.title('Aggregated Confusion Matrix (Guitar)', fontsize=12)
             plt.savefig(f'guitars_{len(class_names)}_class_confusion_matrix.eps', format='eps')
+            
         elif 'amplifier' in folds.lower():
-            plt.title('Amplifier-Aggregated Confusion Matrix', fontsize=12)
+            plt.title('Aggregated Confusion Matrix (Amplifier)', fontsize=12)
             plt.savefig(f'amplifiers_{len(class_names)}_class_confusion_matrix.eps', format='eps')
+            
+        else:
+            plt.title('5-Fold Aggregated Confusion Matrix', fontsize=12)
+            plt.savefig(f'5_custom_folds_{len(class_names)}_class_confusion_matrix.eps', format='eps')
     else:
         plt.title('Aggregated Confusion Matrix', fontsize=12)
-        # Save the plot as an EPS file
         plt.savefig(f'{len(class_names)}_class_confusion_matrix.eps', format='eps')
+
+
+def create_df(file_names, labels, features_list):
+    # ------- DataFrame structure -------
+    # first column: wav names
+    # second column: wav labels
+    # the rest columns: feature vectors of each wav file
+    
+    file_names = [os.path.basename(wav_name) for wav_name in file_names]
+    
+    df = pd.DataFrame({
+        'file_name': file_names,
+        'label': labels
+    })
+    features_list = pd.DataFrame(features_list.tolist())
+    df = pd.concat([df, features_list], axis=1)
+    
+    return df
 
 
 def kfold_cross_val(file_names, labels, features_list, fold):
     """
-    Perform cross validation on the given features.
+    Perform kfold cross validation.
     
     Args:
-        features_list (_list_): the feature vectors
         file_names (_list_): the wav names
         labels (_list_): the labels to be used
+        features_list (_list_): the feature vectors
         fold (_int_): num of folds
     """
     
@@ -67,8 +91,11 @@ def kfold_cross_val(file_names, labels, features_list, fold):
     
     acc_scores = []
     f1_scores = []
-    i = 0
     
+    if os.path.exists(f'{fold}_fold_results.txt'):
+        os.remove(f'{fold}_fold_results.txt')
+    
+    i = 0
     for train_index, test_index in kfold.split(X, y):
         print(f"\n========================= FOLD {i+1}  =========================\n")
         X_train, X_test = X[train_index], X[test_index]
@@ -92,10 +119,20 @@ def kfold_cross_val(file_names, labels, features_list, fold):
         acc_scores.append(acc_fold)
         aggregated_cm = np.add(aggregated_cm, fold_cm)
         
-        print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
-        print(f"Accuracy for fold {i+1}: {acc_fold}")        
-        print(classification_report(y_test, y_pred))
-        print(f"Confusion matrix: \n{fold_cm}")
+        with open(f'{fold}_fold_results.txt', 'a') as f:
+            print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            print(f"Accuracy for fold {i+1}: {acc_fold}")        
+            print(classification_report(y_test, y_pred))
+            print(f"Confusion matrix: \n{fold_cm}")
+            
+            f.write(f"\n========================= FOLD {i+1}  =========================\n")
+            f.write(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            f.write(f"\nF1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
+            f.write(classification_report(y_test, y_pred))
+            f.write(f"\nConfusion matrix: \n{fold_cm}")
+        
         i+=1
     
     print(f"\n################## AGGREGATED RESULTS ##################\n")
@@ -105,139 +142,27 @@ def kfold_cross_val(file_names, labels, features_list, fold):
     
     agg_acc_scores = round(np.mean(acc_scores)*100, 2)
     agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
-    
-    print(f"Aggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}\n")
-    print(f"Aggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}\n")
-    print(aggregated_cm)
 
-    return aggregated_cm
-    
-    
-    # scaling
-    # X_train = scaler.fit_transform(X_train)
-    # X_test = scaler.transform(X_test)
-    
-    # print(f"X_train shape: {X_train.shape} \nX_test shape: {X_test.shape}")
-    
-    # param_grid = {'C': [0.1, 1, 10, 20, 40, 50, 100], 
-    #               'gamma': [0.001, 0.01, 0.1, 1, 10],
-    #               'kernel': ['linear', 'rbf' ]
-    #               }
-
-    # svm_model = SVC()
-    # kf = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
-    # grid_search = GridSearchCV(svm_model, param_grid, cv=kf, scoring='f1_macro')
-
-    # grid_search.fit(X_train, y_train)
-    # best_model = grid_search.best_estimator_
-    
-    # print("Best score:", grid_search.best_score_)
-    # print(f"best model: {best_model}")
-    
-    # # Predictions
-    # preds = best_model.predict(X_test)
+    with open(f'{fold}_fold_results.txt', 'a') as f:
+        print(f"\n#################### AGGREGATED RESULTS ####################")
+        print(f"Aggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        print(f"Aggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        print(f"Confusion matrix: \n{aggregated_cm}")
         
-    # print(f"Test score: {best_model.score(X_test, y_test)}")
-    # print(classification_report(y_test, preds))
-    
-    # cm = confusion_matrix(y_test, preds)
-    # print(f"Confusion matrix: \n{cm}")
-    
-
-def create_df(file_names, labels, features_list):
-    file_names = [os.path.basename(wav_name) for wav_name in file_names]
-    df = pd.DataFrame({
-        'file_name': file_names,
-        'label': labels
-    })
-    features_list = pd.DataFrame(features_list.tolist())
-    df = pd.concat([df, features_list], axis=1)
-    
-    return df
-
-
-def leave_one_metadata_out(file_names, labels, features_list, metada_folds):
-    try:
-        with open(metada_folds) as f:
-            mt_folds = json.load(f)
-    except ValueError:
-        print(f"{metada_folds} is not a valid JSON file.")
-
-    df = create_df(file_names, labels, features_list) 
-    
-    scaler = StandardScaler()
-    f1_macro_scorer = make_scorer(f1_score, average='macro')
-    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
-                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
-                  'kernel': ['rbf'],
-                 }
-    
-    aggregated_cm = np.zeros((9, 9), dtype=int)
-
-    acc_scores = []
-    f1_scores = []
-    
-    for i, key in enumerate(mt_folds.keys()):
-        print(f"\n========================= FOLD {i+1}  =========================\n")
-        
-        metadata_list = mt_folds[key]
-                
-        mask = df['file_name'].isin(metadata_list)
-        
-        X_test = df[mask].iloc[:, 2:].values
-        y_test = df[mask]['label'].values
-        X_train = df[~mask].iloc[:, 2:].values
-        y_train = df[~mask]['label'].values
-        
-        X_train = scaler.fit_transform(X_train)
-        X_test = scaler.transform(X_test)
-                
-        print(f"X_train_shape: {X_train.shape} y_train_shape: {y_train.shape}")
-        print(f"X_test_shape: {X_test.shape} y_test_shape: {y_test.shape}")
-        
-        svm = SVC(random_state=40)  
-        grid_search = GridSearchCV(svm, param_grid, scoring=f1_macro_scorer)
-        
-        grid_search.fit(X_train, y_train)
-        print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
-        
-        # best_model = grid_search.best_estimator_
-        y_pred = grid_search.predict(X_test)        
-        
-        f1_macro_fold = grid_search.score(X_test, y_test)
-        acc_fold = accuracy_score(y_test, y_pred)
-        fold_cm = confusion_matrix(y_test, y_pred)
-        
-        f1_scores.append(f1_macro_fold)
-        acc_scores.append(acc_fold)
-        aggregated_cm = np.add(aggregated_cm, fold_cm)
-        
-        print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
-        print(f"Accuracy for fold {i+1}: {acc_fold}")        
-        print(classification_report(y_test, y_pred))
-        print(f"Confusion matrix: \n{fold_cm}")
-    
-    print(f"\n################## AGGREGATED RESULTS ##################\n")
-    
-    agg_f1_scores = round(np.mean(f1_scores)*100, 2)
-    agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
-    
-    agg_acc_scores = round(np.mean(acc_scores)*100, 2)
-    agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
-    
-    print(f"Aggregated f1-macro score ({len(mt_folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}\n")
-    print(f"Aggregated accuracy score ({len(mt_folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}\n")
-    print(aggregated_cm)
+        f.write(f"\n#################### AGGREGATED RESULTS ####################")
+        f.write(f"\nAggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        f.write(f"\nAggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        f.write(f"\nConfusion matrix: \n{aggregated_cm}")
 
     return aggregated_cm
 
 
-def ready_folds_train(file_names, labels, features_list, ready_folds):
+def custom_folds_train(file_names, labels, features_list, json_folds):
     try:
-        with open(ready_folds) as f:
+        with open(json_folds) as f:
             folds = json.load(f)
     except ValueError:
-        print(f"{ready_folds} is not a valid JSON file.")
+        print(f"{json_folds} is not a valid JSON file.")
 
     df = create_df(file_names, labels, features_list)   
      
@@ -252,17 +177,21 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
 
     acc_scores = []
     f1_scores = []
-
-    for i in range(len(folds)):
+    
+    if os.path.exists(f'{json_folds.replace(".json", "")}_results.txt'):
+        os.remove(f'{json_folds.replace(".json", "")}_results.txt')
+    
+    i=0
+    for fold_name, data in folds.items():
         print(f"\n========================= FOLD {i+1}  =========================\n")
         X_train = []
         y_train = []
         X_test = []
         y_test = []
-
-        train_files = folds[f'fold_{i}']['train']
-        test_files = folds[f'fold_{i}']['test']
         
+        train_files = data['train']
+        test_files = data['test']
+
         # Filter the dataframe to only include the train files for this fold & shuffle
         fold_train_df = df[df['file_name'].isin(train_files)]
         fold_train_df = fold_train_df.sample(frac=1).reset_index(drop=True)
@@ -285,11 +214,10 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
 
-        svm = SVC(random_state=40)  
+        svm = SVC()  
         grid_search = GridSearchCV(svm, param_grid, scoring=f1_macro_scorer)
         
         grid_search.fit(X_train, y_train)
-        print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
         
         # best_model = grid_search.best_estimator_
         y_pred = grid_search.predict(X_test)        
@@ -302,21 +230,36 @@ def ready_folds_train(file_names, labels, features_list, ready_folds):
         acc_scores.append(acc_fold)
         aggregated_cm = np.add(aggregated_cm, fold_cm)
         
-        print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
-        print(f"Accuracy for fold {i+1}: {acc_fold}")        
-        print(classification_report(y_test, y_pred))
-        print(f"Confusion matrix: \n{fold_cm}")
-    
-    print(f"\n################## AGGREGATED RESULTS ##################\n")
-    
+        with open(f'{json_folds.replace(".json", "")}_results.txt', 'a') as f:
+            print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            print(f"Accuracy for fold {i+1}: {acc_fold}")        
+            print(classification_report(y_test, y_pred))
+            print(f"Confusion matrix: \n{fold_cm}")
+            
+            f.write(f"\n========================= FOLD {i+1}  =========================\n")
+            f.write(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            f.write(f"\nF1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
+            f.write(classification_report(y_test, y_pred))
+            f.write(f"\nConfusion matrix: \n{fold_cm}")
+        i += 1
+        
     agg_f1_scores = round(np.mean(f1_scores)*100, 2)
     agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
     
     agg_acc_scores = round(np.mean(acc_scores)*100, 2)
     agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
     
-    print(f"Aggregated f1-macro score ({len(folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}\n")
-    print(f"Aggregated accuracy score ({len(folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}\n")
-    print(aggregated_cm)
-
+    with open(f'{json_folds.replace(".json", "")}_results.txt', 'a') as f:
+        print(f"\n#################### AGGREGATED RESULTS ####################")
+        print(f"Aggregated f1-macro score ({len(folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        print(f"Aggregated accuracy score ({len(folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        print(f"Confusion matrix: \n{aggregated_cm}")
+        
+        f.write(f"\n#################### AGGREGATED RESULTS ####################")
+        f.write(f"\nAggregated f1-macro score ({len(folds)} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        f.write(f"\nAggregated accuracy score ({len(folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        f.write(f"\nConfusion matrix: \n{aggregated_cm}")
+        
     return aggregated_cm

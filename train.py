@@ -65,11 +65,12 @@ if __name__ == "__main__":
     
     print("Guitar Style Classes: ", [os.path.basename(folder) for folder in class_folders])
     
-    if 'guitar' in json_folds:
-        print("Leaving one guitar out in corss-validation. . .")
-    elif 'amplifier' in json_folds:
-        print("Leaving one amplifier out in cron-validation. . .")
-        
+    if json_folds is not None:
+        if 'guitar' in json_folds:
+            print("Leaving one guitar out in corss-validation. . .")
+        elif 'amplifier' in json_folds:
+            print("Leaving one amplifier out in cron-validation. . .")
+            
     # SVM training
     data_preparation_and_train(class_folders, fold, json_folds)
     
