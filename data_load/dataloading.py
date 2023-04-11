@@ -63,6 +63,8 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None, metada_folds=No
             # labels: list of labels
             fold = int(fold)
             cm = kfold_cross_val(file_names, labels, features_list, fold)
+            class_names = list(class_mapping_dict.keys())
+            plot_cm(cm, class_names)
 
         else:
             raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")
