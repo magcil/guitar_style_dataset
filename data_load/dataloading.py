@@ -53,40 +53,16 @@ def data_preparation_and_train(wav_path, fold, ready_folds=None, metada_folds=No
         plot_cm(cm, class_names)
         
     elif metada_folds is not None:
-        leave_one_metadata_out(file_names, labels, features_list, metada_folds)
-
+        cm = leave_one_metadata_out(file_names, labels, features_list, metada_folds)
+        class_names = list(class_mapping_dict.keys())
+        plot_cm(cm, class_names, folds=metada_folds)
     
-    
-    # else:
-    #     if fold.isdigit():
-    #         # features_list: list of feature vectors
-    #         # labels: list of labels
-    #         fold = int(fold)
-    #         kfold_cross_val(features_list, file_names, labels, fold)
-        
-    #     elif fold=="guitar" or fold=="amplifier" or fold=="amp":
-    #         # 1st col: wav_names, 2nd col: labels, the rest cols represent the features
-    #         file_names = [os.path.basename(wav_name) for wav_name in file_names]
-    #         df = pd.DataFrame({
-    #             'file_name': file_names,
-    #             'label': labels
-    #         })
-            
-    #         features_list = pd.DataFrame(features_list.tolist())
-    #         df = pd.concat([df, features_list], axis=1)
-            
-    #         # add 2 columns for guitar and amplifier names
-    #         df['guitar'] = df['file_name'].str.split('_').str[2]
-    #         df['amplifier'] = df['file_name'].str.split('_').str[3]
-            
-    #         if fold=="guitar" or fold=="amplifier" or fold=="amp":
-    #             if fold=="amp":
-    #                 fold = "amplifier"
-                    
-    #             leave_one_metadata_out(df, fold)
-    #             print(class_mapping_dict)
-                
-    #         # print(df)
+    else:
+        if fold.isdigit():
+            # features_list: list of feature vectors
+            # labels: list of labels
+            fold = int(fold)
+            cm = kfold_cross_val(file_names, labels, features_list, fold)
 
-    #     else:
-    #         raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")
+        else:
+            raise ValueError("fold must either be a number or a string (guitar or amplifier) to choose between kfold or leave-one-out cross-validation.")
