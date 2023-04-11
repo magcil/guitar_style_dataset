@@ -16,6 +16,7 @@ pip3 install -r requirements.txt
 ```
 
 ## 2. Train
+### 2.1 SVM 
 
 The basic script is the `train.py`. To train an `SVM` model on the data using kFold cross-validation _(default k=5)_, run the following script:
 ```
@@ -23,6 +24,8 @@ python3 train.py -d data/wav/
 ```
 
 > where `data/wav` is the directory which contains the class-folders with the wav files. 
+
+Once you run the code, the feature vectors are saved in `.npy` files, so that on the next run, the feature extraction process is omitted.
 
 You can change the value of `k` using the flag `-f`. Example:
 ```
