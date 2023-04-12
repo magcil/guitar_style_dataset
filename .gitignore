@@ -5,9 +5,9 @@
 *.pyc
 *.json
 *.eps
+*.mp4
+*.txt
 *.pt
 *.png
 *.ipynb
-*.txt
 *.pyc
-*.mp4
