@@ -1,0 +1,12 @@
+*.wav
+*.csv
+*.pkl
+*.npy
+*.pyc
+*.json
+*.eps
+*.mp4
+*.txt
+*.png
+*.pt
+*.ipynb

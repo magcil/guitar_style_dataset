@@ -1,0 +1,11 @@
+numpy==1.24.2
+pandas==2.0.0
+sklearn==0.0.post1
+pyaudioanalysis==0.3.14
+matplotlib==3.7.1
+eyed3==0.9.7
+pydub==0.25.1
+scipy==1.10.1
+tqdm==4.65.0
+imbalanced-learn==0.10.1
+plotly==5.14.0
