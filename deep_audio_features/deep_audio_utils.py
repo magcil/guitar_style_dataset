@@ -77,17 +77,12 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
         tmp_train_path = os.path.join(train_path, guitar_technique)
         os.mkdir(tmp_train_path)
         train_path_dict[label] = tmp_train_path
-    start_time = time.time()
     for subdir, dirs, files in os.walk(input_dir):
         
         for wav_file in files:
-            current_time = time.time()
-            if current_time - start_time > 6:
-                break
             if wav_file.endswith('.wav'):
                 wav_name = wav_file.rstrip(".wav")
                 wav_path = os.path.join(subdir, wav_file)
-                print(wav_path)
                 
                 if wav_file in train_wavs:
                     label = get_label(wav_file)
