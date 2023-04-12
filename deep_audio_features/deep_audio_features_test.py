@@ -38,23 +38,29 @@ if __name__ == '__main__':
     json_file = args.json_file
     segment_size = args.segment_size
     output_path = args.output_dir_path
+    
     logs = []
     aggregated_cm = np.zeros((9, 9), dtype=np.int64)
 
     with open(json_file, 'r') as f:
         splits = json.load(f)
-    songs = crawl_directory(input_data_path)
+        
+    songs = crawl_directory(input_data_path, extension=".wav")
     accs, recalls, precisions, f1_scores = [], [], [], []
+    
     for fold in splits:
         train_wavs, test_wavs = [], []
+        
         # Split to train/test
         train_set = splits[fold]['train']
         test_set = splits[fold]['test']
+        
         for song in songs:
             if os.path.basename(song) in train_set:
                 train_wavs.append(os.path.basename(song))
             elif os.path.basename(song) in test_set:
                 test_wavs.append(os.path.basename(song))
+                
         print('Fold:', fold)
         print('Number in test:', len(test_wavs))
         print('Number in train:', len(train_wavs))
@@ -62,8 +68,10 @@ if __name__ == '__main__':
 
         print(f'Preparing dirs...')
         prepare_dirs(input_data_path, train_wavs, test_wavs, output_path, segment_size)
+        
         print('Training starts...')
         deep_audio_training(output_path)
+        
         y_true, y_pred = validate_on_test(output_path)
         labels = CLASSES
         cm = confusion_matrix(y_true, y_pred, labels=labels)

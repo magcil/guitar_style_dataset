@@ -3,10 +3,12 @@ import pickle
 import wave
 import contextlib
 import subprocess
+import sys 
 
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
+import time 
 
 from deep_audio_features.bin import basic_training as bt
 from deep_audio_features.bin import basic_test as btest
@@ -50,6 +52,7 @@ def get_label(filename: str) -> str:
     idx = filename.rfind(prev_str)
     idx += len(prev_str)
     label = filename[idx]
+    
     return label
 
 
@@ -74,67 +77,82 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
         tmp_train_path = os.path.join(train_path, guitar_technique)
         os.mkdir(tmp_train_path)
         train_path_dict[label] = tmp_train_path
-    for wav_file in input_files:
-        wav_name = wav_file.rstrip(".wav")
-        wav_path = os.path.join(input_dir, wav_file)
-        if wav_file in train_wavs:
-            label = get_label(wav_file)
-            out_path = train_path_dict[int(label)]
-            fnc = 'train'
-        elif wav_file in test_wavs:
-            out_path = test_path
-            fnc = 'test'
-        else:
-            print(f'File {wav_file} does not belong to train nor test set. \nSkipping {wav_file}.')
-        # get wav duration
-        if 'out_path' in locals():
-            try:
-                dur = get_wav_duration(os.path.join(input_dir, wav_file))
-            except Exception as err:
-                raise err
-        else:
-            pass
-        # create a temporary wav that has been trimmed accordingly depending on the segment size
-        if 'dur' in locals() and fnc == 'train':
-            end = (dur // segment_size) * segment_size
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
-                        str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", temp_wav_path
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured saving the temp wav of {wav_file}.\nError: {e}")
-                print(f"Skipping the splitting of {wav_file}.")
-                continue
-            # segment temporary wav and save it in corresponding directory
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", temp_wav_path, "-f", "segment", "-segment_time",
-                        str(segment_size), "-ar", "8000", "-ac", "1", "-loglevel", "quiet",
-                        f"{out_path}/{wav_name}_{segment_size}_%03d.wav"
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured with the segmentation of {wav_file}.\nError: {e}")
-        elif 'dur' in locals() and fnc == 'test':
-            end = (dur // segment_size) * segment_size
-            test_wav_path = os.path.join(out_path, f"{out_path}/{wav_name}_trimmed.wav")
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
-                        str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", test_wav_path
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured saving the trimmed {wav_file} file.\nError: {e}")
-                print(f"Skipping {wav_file}.")
-                continue
-        else:
-            pass
+    start_time = time.time()
+    for subdir, dirs, files in os.walk(input_dir):
+        
+        for wav_file in files:
+            current_time = time.time()
+            if current_time - start_time > 6:
+                break
+            if wav_file.endswith('.wav'):
+                wav_name = wav_file.rstrip(".wav")
+                wav_path = os.path.join(subdir, wav_file)
+                print(wav_path)
+                
+                if wav_file in train_wavs:
+                    label = get_label(wav_file)
+                    out_path = train_path_dict[int(label)]
+                    fnc = 'train'
+                    
+                elif wav_file in test_wavs:
+                    out_path = test_path
+                    fnc = 'test'
+                    
+                else:
+                    print(f'File {wav_file} does not belong to train nor test set. \nSkipping {wav_file}.')
+                
+                # get wav duration
+                if 'out_path' in locals():
+                    try:
+                        dur = get_wav_duration(os.path.join(subdir, wav_file))
+                    except Exception as err:
+                        raise err
+                else:
+                    pass
+
+                # create a temporary wav that has been trimmed accordingly depending on the segment size
+                if 'dur' in locals() and fnc == 'train':
+                    end = (dur // segment_size) * segment_size
+                    try:
+                        subprocess.check_call(
+                            [
+                                "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
+                                str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", temp_wav_path
+                            ]
+                        )
+                    except subprocess.CalledProcessError as e:
+                        print(f"An error occured saving the temp wav of {wav_file}.\nError: {e}")
+                        print(f"Skipping the splitting of {wav_file}.")
+                        continue
+                    # segment temporary wav and save it in corresponding directory
+                    try:
+                        subprocess.check_call(
+                            [
+                                "ffmpeg", "-i", temp_wav_path, "-f", "segment", "-segment_time",
+                                str(segment_size), "-ar", "8000", "-ac", "1", "-loglevel", "quiet",
+                                f"{out_path}/{wav_name}_{segment_size}_%03d.wav"
+                            ]
+                        )
+                    except subprocess.CalledProcessError as e:
+                        print(f"An error occured with the segmentation of {wav_file}.\nError: {e}")
+                        
+                elif 'dur' in locals() and fnc == 'test':
+                    end = (dur // segment_size) * segment_size
+                    test_wav_path = os.path.join(out_path, f"{wav_name}_trimmed.wav")
+
+                    try:
+                        subprocess.check_call(
+                            [
+                                "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
+                                str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", test_wav_path
+                            ]
+                        )
+                    except subprocess.CalledProcessError as e:
+                        print(f"An error occured saving the trimmed {wav_file} file.\nError: {e}")
+                        print(f"Skipping {wav_file}.")
+                        continue
+                else:
+                    pass
 
 
 def deep_audio_training(output_path):
@@ -143,6 +161,8 @@ def deep_audio_training(output_path):
     train_path = os.path.join(output_path, 'train')
     train_dirs = next(os.walk(train_path))[1]
     train_dirs = [os.path.join(output_path, 'train', dir) for dir in train_dirs]
+    
+    print(train_dirs)
     bt.train_model(train_dirs, 'technique_classifier')
 
 
