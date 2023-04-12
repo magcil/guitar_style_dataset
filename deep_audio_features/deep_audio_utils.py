@@ -150,7 +150,7 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
                     pass
 
 
-def deep_audio_training(output_path):
+def deep_audio_training(output_path, model_name):
     """Train on dirs using deep audio features"""
 
     train_path = os.path.join(output_path, 'train')
@@ -158,10 +158,10 @@ def deep_audio_training(output_path):
     train_dirs = [os.path.join(output_path, 'train', dir) for dir in train_dirs]
     
     print(train_dirs)
-    bt.train_model(train_dirs, 'technique_classifier')
+    bt.train_model(train_dirs, model_name)
 
 
-def validate_on_test(output_path, model_path='pkl/technique_classifier.pt'):
+def validate_on_test(output_path, model_path):
     """Validate on test using deep audio features"""
     test_path = os.path.join(output_path, 'test')
     y_true, y_pred = [], []
