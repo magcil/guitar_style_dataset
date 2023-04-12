@@ -26,6 +26,10 @@ def parse_args():
         '-s', '--segment_size', type=int, default=1, help='The segment size of wav files in training (secs).'
     )
     parser.add_argument('-o', '--output_dir_path', required=True, help='Path to store the train/test splits.')
+    parser.add_argument(
+        '-t', '--test_seg', type=bool, default=False, required=False, help='For segment-level predictions',
+        action=argparse.BooleanOptionalAction
+        )
 
     return parser.parse_args()
 
@@ -38,8 +42,14 @@ if __name__ == '__main__':
     json_file = args.json_file
     segment_size = args.segment_size
     output_path = args.output_dir_path
+    test_seg = args.test_seg
     logs = []
     aggregated_cm = np.zeros((9, 9), dtype=np.int64)
+
+    if test_seg == True:
+        print('Test files will be segmented for segment-level predictions')
+    else:
+        pass
 
     with open(json_file, 'r') as f:
         splits = json.load(f)
@@ -61,10 +71,10 @@ if __name__ == '__main__':
         logs.append(f'{5*"-"}> {fold} <{5*"-"}\n')
 
         print(f'Preparing dirs...')
-        prepare_dirs(input_data_path, train_wavs, test_wavs, output_path, segment_size)
+        prepare_dirs(input_data_path, train_wavs, test_wavs, output_path, segment_size, test_seg)
         print('Training starts...')
         deep_audio_training(output_path)
-        y_true, y_pred = validate_on_test(output_path)
+        y_true, y_pred = validate_on_test(output_path, test_seg)
         labels = CLASSES
         cm = confusion_matrix(y_true, y_pred, labels=labels)
         aggregated_cm = np.add(aggregated_cm, cm)

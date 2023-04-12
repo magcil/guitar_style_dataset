@@ -61,7 +61,7 @@ def get_wav_duration(fname):
         return duration
 
 
-def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
+def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size, test_seg):
     """Given a train/test split create dirs with segmented wavs on train separated in classes"""
     train_path = os.path.join(output_path, 'train')
     test_path = os.path.join(output_path, 'test')
@@ -85,6 +85,7 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
             out_path = test_path
             fnc = 'test'
         else:
+            fnc = 'other'
             print(f'File {wav_file} does not belong to train nor test set. \nSkipping {wav_file}.')
         # get wav duration
         if 'out_path' in locals():
@@ -95,47 +96,49 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size):
         else:
             pass
         # create a temporary wav that has been trimmed accordingly depending on the segment size
-        if 'dur' in locals() and fnc == 'train':
-            end = (dur // segment_size) * segment_size
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
-                        str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", temp_wav_path
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured saving the temp wav of {wav_file}.\nError: {e}")
-                print(f"Skipping the splitting of {wav_file}.")
-                continue
-            # segment temporary wav and save it in corresponding directory
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", temp_wav_path, "-f", "segment", "-segment_time",
-                        str(segment_size), "-ar", "8000", "-ac", "1", "-loglevel", "quiet",
-                        f"{out_path}/{wav_name}_{segment_size}_%03d.wav"
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured with the segmentation of {wav_file}.\nError: {e}")
-        elif 'dur' in locals() and fnc == 'test':
-            end = (dur // segment_size) * segment_size
-            test_wav_path = os.path.join(out_path, f"{out_path}/{wav_name}_trimmed.wav")
-            try:
-                subprocess.check_call(
-                    [
-                        "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
-                        str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", test_wav_path
-                    ]
-                )
-            except subprocess.CalledProcessError as e:
-                print(f"An error occured saving the trimmed {wav_file} file.\nError: {e}")
-                print(f"Skipping {wav_file}.")
-                continue
+        if 'dur' in locals() and (fnc == 'train' or fnc == 'test'):
+            if fnc == 'train' or test_seg == True:
+                end = (dur // segment_size) * segment_size
+                try:
+                    subprocess.check_call(
+                        [
+                            "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
+                            str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", temp_wav_path
+                        ]
+                    )
+                except subprocess.CalledProcessError as e:
+                    print(f"An error occured saving the temp wav of {wav_file}.\nError: {e}")
+                    print(f"Skipping the splitting of {wav_file}.")
+                    continue
+                # segment temporary wav and save it in corresponding directory
+                try:
+                    subprocess.check_call(
+                        [
+                            "ffmpeg", "-i", temp_wav_path, "-f", "segment", "-segment_time",
+                            str(segment_size), "-ar", "8000", "-ac", "1", "-loglevel", "quiet",
+                            f"{out_path}/{wav_name}_{segment_size}_%03d.wav"
+                        ]
+                    )
+                except subprocess.CalledProcessError as e:
+                    print(f"An error occured with the segmentation of {wav_file}.\nError: {e}")
+            elif fnc == 'test':
+                end = (dur // segment_size) * segment_size
+                test_wav_path = os.path.join(out_path, f"{out_path}/{wav_name}_trimmed.wav")
+                try:
+                    subprocess.check_call(
+                        [
+                            "ffmpeg", "-i", wav_path, "-ss", "0", "-to",
+                            str(end), "-ar", "8000", "-ac", "1", "-y", "-loglevel", "quiet", test_wav_path
+                        ]
+                    )
+                except subprocess.CalledProcessError as e:
+                    print(f"An error occured saving the trimmed {wav_file} file.\nError: {e}")
+                    print(f"Skipping {wav_file}.")
+                    continue
+            else:
+                pass
         else:
             pass
-
 
 def deep_audio_training(output_path):
     """Train on dirs using deep audio features"""
@@ -146,7 +149,7 @@ def deep_audio_training(output_path):
     bt.train_model(train_dirs, 'technique_classifier')
 
 
-def validate_on_test(output_path, model_path='pkl/technique_classifier.pt'):
+def validate_on_test(output_path, test_seg, model_path='pkl/technique_classifier.pt'):
     """Validate on test using deep audio features"""
     test_path = os.path.join(output_path, 'test')
     y_true, y_pred = [], []
@@ -159,21 +162,30 @@ def validate_on_test(output_path, model_path='pkl/technique_classifier.pt'):
     for song in test_songs:
         if os.path.basename(song) == 'temp_trimmed.wav':
             continue
-        preds, posteriors = btest.test_model(model_path, song, layers_dropped=0, test_segmentation=True)
-        probs = np.exp(posteriors) / np.sum(np.exp(posteriors), axis=1).reshape(posteriors.shape[0], 1)
-        p_aggregated = probs.mean(axis=0)
-        counts = np.bincount(preds)
-        results = []
-        for i in range(counts.size):
-            results.append((counts[i], p_aggregated[i], i))
-        results = sorted(results, key=lambda x: (x[0], x[1]), reverse=True)
-        pred_label = results[0][-1]
-        y_pred.append(model_class_mapping[pred_label])
-        true_label = int(os.path.basename(song).split('_')[1])
-        y_true.append(CLASS_MAPPING[true_label])
-        print(
-            f'True: {CLASS_MAPPING[true_label]} | Pred: {model_class_mapping[pred_label]}' +
-            f'| Prob: {results[0][1]} | Counts: {results[0][0]}'
-        )
-
+        if test_seg == False:
+            preds, posteriors = btest.test_model(model_path, song, layers_dropped=0, test_segmentation=True)
+            probs = np.exp(posteriors) / np.sum(np.exp(posteriors), axis=1).reshape(posteriors.shape[0], 1)
+            p_aggregated = probs.mean(axis=0)
+            counts = np.bincount(preds)
+            results = []
+            for i in range(counts.size):
+                results.append((counts[i], p_aggregated[i], i))
+            results = sorted(results, key=lambda x: (x[0], x[1]), reverse=True)
+            pred_label = results[0][-1]
+            y_pred.append(model_class_mapping[pred_label])
+            true_label = int(os.path.basename(song).split('_')[1])
+            y_true.append(CLASS_MAPPING[true_label])
+            print(
+                f'True: {CLASS_MAPPING[true_label]} | Pred: {model_class_mapping[pred_label]}' +
+                f'| Prob: {results[0][1]} | Counts: {results[0][0]}'
+            )
+        else:
+            pred, posteriors = btest.test_model(model_path, song, layers_dropped=0, test_segmentation=False)
+            y_pred.append(model_class_mapping[pred[0]])
+            true_label = int(os.path.basename(song).split('_')[1])
+            y_true.append(CLASS_MAPPING[true_label])
+            print(
+                f'True: {CLASS_MAPPING[true_label]} | Pred: {model_class_mapping[pred[0]]}'
+            )
+            
     return y_true, y_pred
