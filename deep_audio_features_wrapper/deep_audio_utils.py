@@ -108,7 +108,7 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size, te
                 # create a temporary wav that has been trimmed accordingly depending on the segment size
                 if 'dur' in locals() and (fnc == 'train' or fnc == 'test'):
                     if fnc == 'train' or test_seg == True:
-                        end = (dur // segment_size) * segment_size
+                        end = int((dur // segment_size) * segment_size)
                         try:
                             subprocess.check_call(
                                 [
@@ -133,7 +133,7 @@ def prepare_dirs(input_dir, train_wavs, test_wavs, output_path, segment_size, te
                             print(f"An error occured with the segmentation of {wav_file}.\nError: {e}")
                         
                     elif fnc == 'test':
-                        end = (dur // segment_size) * segment_size
+                        end = int((dur // segment_size) * segment_size)
                         test_wav_path = os.path.join(out_path, f"{wav_name}_trimmed.wav")
 
                         try:
