@@ -163,7 +163,7 @@ def deep_audio_training(output_path, model_name):
     bt.train_model(train_dirs, model_name)
 
 
-def validate_on_test(output_path, test_seg, model_path='pkl/technique_classifier.pt'):
+def validate_on_test(output_path, model_path, test_seg):
     """Validate on test using deep audio features"""
     test_path = os.path.join(output_path, 'test')
     y_true, y_pred = [], []
