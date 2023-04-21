@@ -52,11 +52,6 @@ if __name__ == '__main__':
     else:
         pass
 
-    if test_seg == True:
-        print('Test files will be segmented for segment-level predictions')
-    else:
-        pass
-
     with open(json_file, 'r') as f:
         splits = json.load(f)
 
