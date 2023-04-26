@@ -52,7 +52,7 @@ You can also train `CNNs` using Mel-spectrograms that correspond to segments of 
 
 For training `CNNs` and testing them based on predictions on full wav files, you can run the script below:
 ```
-python3 deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder
+python3 deep_audio_features_wrapper/deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder
 ```
  where: 
  - `data/wav/` is the path to the `wav` folder, that contains all wav files of the dataset
@@ -65,7 +65,7 @@ python3 deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /pat
 For segment-level predictions you can add the flag `-t`. In this case, the following command should be executed:
 
 ```
-python3 deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder -t
+python3 deep_audio_features_wrapper/deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder -t
 ```
 
 For both options, the results for each fold and the final results will be printed in the console as well as in `.txt`  files.
