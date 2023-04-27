@@ -44,3 +44,28 @@ python3 train.py -d data/wav -j data/folds.json
 ```
 
 The results of each fold, as well as the aggregated ones, are both printed in the console and in `.txt` files.
+
+### 2.2 CNNs
+You can also train `CNNs` using Mel-spectrograms that correspond to segments of the wav files of the dataset.
+
+#### 2.2.1 Predictions on wav files using majority vote
+
+For training `CNNs` and testing them based on predictions on full wav files, you can run the script below:
+```
+python3 deep_audio_features_wrapper/deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder
+```
+ where: 
+ - `data/wav/` is the path to the `wav` folder, that contains all wav files of the dataset
+ - `data/folds.json` is the path to a json file containing the fold splits to be used for training the networks
+ - `/path/to/output_folder` is the path to an empty folder where the segments of the wav files will be placed
+ -  `-s` determines the segment size of wav files that will be used for training, in seconds
+
+#### 2.2.2 Segment-level predictions
+
+For segment-level predictions you can add the flag `-t`. In this case, the following command should be executed:
+
+```
+python3 deep_audio_features_wrapper/deep_audio_features_test.py -i data/wav/ -j data/folds.json -s 1 -o /path/to/output_folder -t
+```
+
+For both options, the results for each fold and the final results will be printed in the console as well as in `.txt`  files.
