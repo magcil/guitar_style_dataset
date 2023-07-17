@@ -1,7 +1,3 @@
-from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score, StratifiedKFold
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, make_scorer, f1_score
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
-from sklearn.svm import SVC, LinearSVC
 import numpy as np
 import pandas as pd
 import os
@@ -9,6 +5,28 @@ import sys
 import json
 import matplotlib.pyplot as plt
 import contextlib
+import shutil
+
+from utils.feature_extraction import feature_extractor
+from deep_audio_features_wrapper.deep_audio_utils import crawl_directory, get_wav_duration, get_label, prepare_dirs
+
+from sklearn.model_selection import train_test_split, KFold, GridSearchCV, cross_val_score, StratifiedKFold
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, make_scorer, f1_score
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.svm import SVC, LinearSVC
+
+
+class_mapping_dict = {
+    'alternate picking': 0,
+    'legato': 1,
+    'tapping': 2,
+    'sweep picking': 3,
+    'vibrato': 4,
+    'hammer on': 5,
+    'pull off': 6,
+    'slide': 7,
+    'bend': 8 
+}
 
 
 def plot_cm(conf_matrix, class_names, folds=None):
@@ -63,6 +81,15 @@ def create_df(file_names, labels, features_list):
     df = pd.concat([df, features_list], axis=1)
     
     return df
+
+def get_subfolders(path):
+    subfolders = []
+
+    for root, dirs, _ in os.walk(path):
+        for dir_name in dirs:
+            subfolders.append(os.path.join(root, dir_name))
+
+    return subfolders
 
 
 def kfold_cross_val(file_names, labels, features_list, fold):
@@ -157,21 +184,22 @@ def kfold_cross_val(file_names, labels, features_list, fold):
     return aggregated_cm
 
 
-def custom_folds_train(file_names, labels, features_list, json_folds):
+def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_path):
     try:
         with open(json_folds) as f:
             folds = json.load(f)
     except ValueError:
         print(f"{json_folds} is not a valid JSON file.")
 
-    df = create_df(file_names, labels, features_list)   
-     
+    songs = crawl_directory(data_path, extension=".wav")
+
     scaler = StandardScaler()
     f1_macro_scorer = make_scorer(f1_score, average='macro')
-    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
-                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
-                  'kernel': ['rbf'],
-                 }
+    param_grid = {
+        'C': [0.1, 1, 10, 50, 100, 1000], 
+        'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
+        'kernel': ['rbf'],
+    }
     
     aggregated_cm = np.zeros((9, 9), dtype=int)
 
@@ -181,31 +209,68 @@ def custom_folds_train(file_names, labels, features_list, json_folds):
     if os.path.exists(f'{json_folds.replace(".json", "")}_results.txt'):
         os.remove(f'{json_folds.replace(".json", "")}_results.txt')
     
-    i=0
-    for fold_name, data in folds.items():
+    i=-1
+    for fold in folds:
         print(f"\n========================= FOLD {i+1}  =========================\n")
+        train_wavs, test_wavs = [], []
+        model_name = 'classifier_' + fold
+
+        # Split to train/test
+        train_set = folds[fold]['train']
+        test_set = folds[fold]['test']
+        
+        for song in songs:
+            if os.path.basename(song) in train_set:
+                train_wavs.append(os.path.basename(song))
+            elif os.path.basename(song) in test_set:
+                test_wavs.append(os.path.basename(song))
+
+        print('Fold:', fold)
+        print(f'{len(train_wavs)} songs in train set')
+        print(f'{len(test_wavs)} songs in test set')
+        
+        print("\nTrimming and segmenting songs. This may take a while..")
+        prepare_dirs(data_path, train_wavs, test_wavs, output_path, segment_size, test_seg)
+        
+        train_dirs = []
+        train_dirs = get_subfolders(os.path.join(output_path, "train"))
+        test_dir = os.path.join(output_path, "test")
+
+        # train features
+        features_list, class_names, file_names, shapes_list = feature_extractor(train_dirs, len(train_dirs))
+        
+        # test features
+        mid_term_features, wav_file_list2, mid_feature_names = feature_extractor(test_dir, len(test_dir), train=False)
+        y_labels = [int(item.split("_")[1]) for item in wav_file_list2]
+
+        # create list of labels (labels as many as the shapes (from shapes_list))
+        features_list = np.array(features_list)
+        if (features_list.shape[0]) > 0:
+            label_mapping = [class_mapping_dict[path.split('/')[-1]] for path in train_dirs]
+            labels = []
+            
+            for count, label in zip(shapes_list, label_mapping):
+                labels.extend([label]*count)
+        else:
+            raise ValueError("Features' list does not contain elements.")
+
         X_train = []
         y_train = []
         X_test = []
         y_test = []
-        
-        train_files = data['train']
-        test_files = data['test']
 
-        # Filter the dataframe to only include the train files for this fold & shuffle
-        fold_train_df = df[df['file_name'].isin(train_files)]
+        fold_train_df = create_df(file_names, labels, features_list) 
         fold_train_df = fold_train_df.sample(frac=1).reset_index(drop=True)
-        
+
         X_train.append(fold_train_df.iloc[:, 2:].values)
         y_train.append(fold_train_df['label'].values)
-        
-        # Filter the dataframe to only include the test files for this fold & shuffle
-        fold_test_df = df[df['file_name'].isin(test_files)]
+
+        fold_test_df = create_df(wav_file_list2, y_labels, mid_term_features)
         fold_test_df = fold_test_df.sample(frac=1).reset_index(drop=True)
-        
+
         X_test.append(fold_test_df.iloc[:, 2:].values)
         y_test.append(fold_test_df['label'].values)
-        
+
         X_train = np.concatenate(X_train, axis=0)
         y_train = np.concatenate(y_train, axis=0)
         X_test = np.concatenate(X_test, axis=0)
@@ -243,7 +308,12 @@ def custom_folds_train(file_names, labels, features_list, json_folds):
             f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
             f.write(classification_report(y_test, y_pred))
             f.write(f"\nConfusion matrix: \n{fold_cm}")
+
         i += 1
+        
+        # Remove dirs for the next fold
+        shutil.rmtree(os.path.join(output_path, "train"))
+        shutil.rmtree(os.path.join(output_path, "test"))
         
     agg_f1_scores = round(np.mean(f1_scores)*100, 2)
     agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
