@@ -39,6 +39,30 @@ def parse_arguments():
     )
     
     parser.add_argument(
+        '-s', 
+        '--segment_size', 
+        type=int, 
+        default=1, 
+        help='The segment size of wav files in training in seconds (default: 1)'
+    )
+
+    parser.add_argument(
+        '-t', 
+        '--test_seg', 
+        type=bool, 
+        default=False, 
+        help='For segment-level predictions',
+        action=argparse.BooleanOptionalAction
+    )
+
+    parser.add_argument(
+        '-o', 
+        '--output_dir', 
+        required=True, 
+        help='Path to store the train/test splits.'
+    )
+
+    parser.add_argument(
         "-j",
         "--json_folds",
         type=str,
@@ -56,22 +80,26 @@ if __name__ == "__main__":
     data_path = args.data_path
     fold = args.fold
     json_folds = args.json_folds
+    segment_size = args.segment_size
+    output_path = args.output_dir
+    test_seg = args.test_seg
     
-    class_folders = []
-    
-    for folder in os.listdir(data_path):
-        if os.path.isdir(os.path.join(data_path, folder)):
-            class_folders.append(os.path.join(data_path, folder))
-    
-    print("Guitar Style Classes: ", [os.path.basename(folder) for folder in class_folders])
+    try:
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+            print(f"Directory '{output_path}' created successfully.")
+        else:
+            print(f"Directory '{output_path}' already exists.")
+    except Exception as e:
+        print(f"Error creating directory: {e}")
     
     if json_folds is not None:
         if 'guitar' in json_folds:
             print("Leaving one guitar out in corss-validation. . .")
         elif 'amplifier' in json_folds:
             print("Leaving one amplifier out in cron-validation. . .")
-            
+
     # SVM training
-    data_preparation_and_train(class_folders, fold, json_folds)
+    data_preparation_and_train(data_path, fold, json_folds, segment_size, test_seg, output_path)
     
     
