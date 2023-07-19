@@ -53,18 +53,19 @@ def plot_cm(conf_matrix, class_names, folds=None):
         if 'guitar' in folds.lower():
             plt.title('Aggregated Confusion Matrix (Guitar)', fontsize=12)
             plt.savefig(f'guitars_{len(class_names)}_class_confusion_matrix.eps', format='eps')
-            
+            plt.savefig(f'guitars_{len(class_names)}_class_confusion_matrix.pdf', format='pdf')
         elif 'amplifier' in folds.lower():
             plt.title('Aggregated Confusion Matrix (Amplifier)', fontsize=12)
             plt.savefig(f'amplifiers_{len(class_names)}_class_confusion_matrix.eps', format='eps')
-            
+            plt.savefig(f'amplifiers_{len(class_names)}_class_confusion_matrix.pdf', format='pdf')
         else:
-            plt.title('5-Fold Aggregated Confusion Matrix', fontsize=12)
+            plt.title('Aggregated Confusion Matrix', fontsize=12)
             plt.savefig(f'5_custom_folds_{len(class_names)}_class_confusion_matrix.eps', format='eps')
+            plt.savefig(f'5_custom_folds_{len(class_names)}_class_confusion_matrix.pdf', format='pdf')
     else:
         plt.title('Aggregated Confusion Matrix', fontsize=12)
         plt.savefig(f'{len(class_names)}_class_confusion_matrix.eps', format='eps')
-
+        plt.savefig(f'{len(class_names)}_class_confusion_matrix.pdf', format='pdf')
 
 def create_df(file_names, labels, features_list):
     # ------- DataFrame structure -------
@@ -297,6 +298,8 @@ def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg
         # fold_test_df = fold_test_df.sample(frac=1).reset_index(drop=True)
 
         test_names.append(fold_test_df['file_name'].values)
+        test_names = test_names[0].tolist()
+
         X_test.append(fold_test_df.iloc[:, 2:].values)
         y_test.append(fold_test_df['label'].values)
 
