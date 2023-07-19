@@ -114,98 +114,6 @@ def majority_vote(wav_list, y_pred):
     return final_predictions
 
 
-def kfold_cross_val(file_names, labels, features_list, fold):
-    """
-    Perform kfold cross validation.
-    
-    Args:
-        file_names (_list_): the wav names
-        labels (_list_): the labels to be used
-        features_list (_list_): the feature vectors
-        fold (_int_): num of folds
-    """
-    
-    X = np.array(features_list)
-    y = np.array(labels)
-    
-    scaler = StandardScaler()
-    f1_macro_scorer = make_scorer(f1_score, average='macro')
-    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
-                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
-                  'kernel': ['rbf'],
-                 }
-    
-    aggregated_cm = np.zeros((9, 9), dtype=int)
-    kfold = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
-    
-    acc_scores = []
-    f1_scores = []
-    
-    if os.path.exists(f'{fold}_fold_results.txt'):
-        os.remove(f'{fold}_fold_results.txt')
-    
-    i = 0
-    for train_index, test_index in kfold.split(X, y):
-        print(f"\n========================= FOLD {i+1}  =========================\n")
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
-        
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_test_scaled = scaler.transform(X_test)
-        
-        svm = SVC()
-        grid_search = GridSearchCV(svm, param_grid=param_grid, cv=kfold, scoring=f1_macro_scorer)
-        
-        # perform grid search on training data
-        grid_search.fit(X_train_scaled, y_train)
-        y_pred = grid_search.predict(X_test_scaled)
-        
-        f1_macro_fold = grid_search.score(X_test_scaled, y_test)
-        acc_fold = accuracy_score(y_test, y_pred)
-        fold_cm = confusion_matrix(y_test, y_pred)
-        
-        f1_scores.append(f1_macro_fold)
-        acc_scores.append(acc_fold)
-        aggregated_cm = np.add(aggregated_cm, fold_cm)
-        
-        with open(f'{fold}_fold_results.txt', 'a') as f:
-            print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
-            print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
-            print(f"Accuracy for fold {i+1}: {acc_fold}")        
-            print(classification_report(y_test, y_pred))
-            print(f"Confusion matrix: \n{fold_cm}")
-            
-            f.write(f"\n========================= FOLD {i+1}  =========================\n")
-            f.write(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
-            f.write(f"\nF1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
-            f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
-            f.write(classification_report(y_test, y_pred))
-            f.write(f"\nConfusion matrix: \n{fold_cm}")
-        
-        i+=1
-    
-    print(f"\n################## AGGREGATED RESULTS ##################\n")
-    
-    agg_f1_scores = round(np.mean(f1_scores)*100, 2)
-    agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
-    
-    agg_acc_scores = round(np.mean(acc_scores)*100, 2)
-    agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
-
-    with open(f'{fold}_fold_results.txt', 'a') as f:
-        print(f"\n#################### AGGREGATED RESULTS ####################")
-        print(f"Aggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
-        print(f"Aggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
-        print(f"Confusion matrix: \n{aggregated_cm}")
-        
-        f.write(f"\n#################### AGGREGATED RESULTS ####################")
-        f.write(f"\nAggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
-        f.write(f"\nAggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
-        f.write(f"\nConfusion matrix: \n{aggregated_cm}")
-
-    return aggregated_cm
-
-
 def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path, num_classes):
     try:
         with open(json_folds) as f:
@@ -325,22 +233,23 @@ def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg
         y_test = majority_vote(test_names, y_test)
 
         acc_fold = accuracy_score(y_test, y_pred)
+        f1_fold = f1_score(y_test, y_pred, average = 'macro')
         fold_cm = confusion_matrix(y_test, y_pred)
         
-        f1_scores.append(f1_macro_fold)
+        f1_scores.append(f1_fold)
         acc_scores.append(acc_fold)
         aggregated_cm = np.add(aggregated_cm, fold_cm)
         
         with open(f'{json_folds.replace(".json", "")}_results.txt', 'a') as f:
             print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
-            print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            print(f"F1 (macro-averaged) for fold {i+1} (no majority): {f1_macro_fold}")
             print(f"Accuracy for fold {i+1}: {acc_fold}")        
             print(classification_report(y_test, y_pred))
             print(f"Confusion matrix: \n{fold_cm}")
             
             f.write(f"\n========================= FOLD {i+1}  =========================\n")
             f.write(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
-            f.write(f"\nF1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            f.write(f"\nF1 (macro-averaged) for fold {i+1} (no majority): {f1_macro_fold}")
             f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
             f.write(classification_report(y_test, y_pred))
             f.write(f"\nConfusion matrix: \n{fold_cm}")
@@ -368,4 +277,96 @@ def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg
         f.write(f"\nAggregated accuracy score ({len(folds)} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
         f.write(f"\nConfusion matrix: \n{aggregated_cm}")
         
+    return aggregated_cm
+
+
+def kfold_cross_val(file_names, labels, features_list, fold):
+    """
+    Perform kfold cross validation.
+    
+    Args:
+        file_names (_list_): the wav names
+        labels (_list_): the labels to be used
+        features_list (_list_): the feature vectors
+        fold (_int_): num of folds
+    """
+    
+    X = np.array(features_list)
+    y = np.array(labels)
+    
+    scaler = StandardScaler()
+    f1_macro_scorer = make_scorer(f1_score, average='macro')
+    param_grid = {'C': [0.1, 1, 10, 50, 100, 1000], 
+                  'gamma': [0.0001, 0.001, 0.01, 0.1, 1, 10],
+                  'kernel': ['rbf'],
+                 }
+    
+    aggregated_cm = np.zeros((9, 9), dtype=int)
+    kfold = StratifiedKFold(n_splits=fold, shuffle=True, random_state=42)
+    
+    acc_scores = []
+    f1_scores = []
+    
+    if os.path.exists(f'{fold}_fold_results.txt'):
+        os.remove(f'{fold}_fold_results.txt')
+    
+    i = 0
+    for train_index, test_index in kfold.split(X, y):
+        print(f"\n========================= FOLD {i+1}  =========================\n")
+        X_train, X_test = X[train_index], X[test_index]
+        y_train, y_test = y[train_index], y[test_index]
+        
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+        
+        svm = SVC()
+        grid_search = GridSearchCV(svm, param_grid=param_grid, cv=kfold, scoring=f1_macro_scorer)
+        
+        # perform grid search on training data
+        grid_search.fit(X_train_scaled, y_train)
+        y_pred = grid_search.predict(X_test_scaled)
+        
+        f1_macro_fold = grid_search.score(X_test_scaled, y_test)
+        acc_fold = accuracy_score(y_test, y_pred)
+        fold_cm = confusion_matrix(y_test, y_pred)
+        
+        f1_scores.append(f1_macro_fold)
+        acc_scores.append(acc_fold)
+        aggregated_cm = np.add(aggregated_cm, fold_cm)
+        
+        with open(f'{fold}_fold_results.txt', 'a') as f:
+            print(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            print(f"F1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            print(f"Accuracy for fold {i+1}: {acc_fold}")        
+            print(classification_report(y_test, y_pred))
+            print(f"Confusion matrix: \n{fold_cm}")
+            
+            f.write(f"\n========================= FOLD {i+1}  =========================\n")
+            f.write(f'\nBest parameters for split {i+1}: {grid_search.best_params_}')
+            f.write(f"\nF1 (macro-averaged) for fold {i+1}: {f1_macro_fold}")
+            f.write(f"\nAccuracy for fold {i+1}: {acc_fold}\n")        
+            f.write(classification_report(y_test, y_pred))
+            f.write(f"\nConfusion matrix: \n{fold_cm}")
+        
+        i+=1
+    
+    print(f"\n################## AGGREGATED RESULTS ##################\n")
+    
+    agg_f1_scores = round(np.mean(f1_scores)*100, 2)
+    agg_std_f1_scores = round(np.std(f1_scores)*100, 2)
+    
+    agg_acc_scores = round(np.mean(acc_scores)*100, 2)
+    agg_std_acc_scores = round(np.std(acc_scores)*100, 2)
+
+    with open(f'{fold}_fold_results.txt', 'a') as f:
+        print(f"\n#################### AGGREGATED RESULTS ####################")
+        print(f"Aggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        print(f"Aggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        print(f"Confusion matrix: \n{aggregated_cm}")
+        
+        f.write(f"\n#################### AGGREGATED RESULTS ####################")
+        f.write(f"\nAggregated f1-macro score ({fold} folds): {agg_f1_scores}% with std: {agg_std_f1_scores}")
+        f.write(f"\nAggregated accuracy score ({fold} folds): {agg_acc_scores}% with std: {agg_std_acc_scores}")
+        f.write(f"\nConfusion matrix: \n{aggregated_cm}")
+
     return aggregated_cm
