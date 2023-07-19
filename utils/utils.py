@@ -206,7 +206,7 @@ def kfold_cross_val(file_names, labels, features_list, fold):
     return aggregated_cm
 
 
-def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path):
+def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path, num_classes):
     try:
         with open(json_folds) as f:
             folds = json.load(f)
@@ -223,7 +223,7 @@ def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg
         'kernel': ['rbf'],
     }
     
-    aggregated_cm = np.zeros((9, 9), dtype=int)
+    aggregated_cm = np.zeros((num_classes, num_classes), dtype=int)
 
     acc_scores = []
     f1_scores = []
@@ -317,12 +317,13 @@ def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg
         grid_search.fit(X_train, y_train)
         
         # best_model = grid_search.best_estimator_
-        y_pred = grid_search.predict(X_test)    
+        y_pred = grid_search.predict(X_test) 
+
+        f1_macro_fold = grid_search.score(X_test, y_test)   
 
         y_pred = majority_vote(test_names, y_pred)    
         y_test = majority_vote(test_names, y_test)
 
-        f1_macro_fold = grid_search.score(X_test, y_test)
         acc_fold = accuracy_score(y_test, y_pred)
         fold_cm = confusion_matrix(y_test, y_pred)
         

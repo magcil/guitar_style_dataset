@@ -22,7 +22,7 @@ def data_preparation_and_train(data_path, fold, json_folds, segment_size, test_s
     if segment_size >= 1:
         if json_folds is not None:
             # leave-one-guitar/amplifier/exercise out
-            cm = custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path)  
+            cm = custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path, len(class_folders))  
             class_names = list(class_mapping_dict.keys())
             plot_cm(cm, class_names, json_folds)
     else:
