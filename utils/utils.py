@@ -6,6 +6,7 @@ import json
 import matplotlib.pyplot as plt
 import contextlib
 import shutil
+import re
 
 from utils.feature_extraction import feature_extractor
 from deep_audio_features_wrapper.deep_audio_utils import crawl_directory, get_wav_duration, get_label, prepare_dirs
@@ -82,6 +83,7 @@ def create_df(file_names, labels, features_list):
     
     return df
 
+
 def get_subfolders(path):
     subfolders = []
 
@@ -90,6 +92,25 @@ def get_subfolders(path):
             subfolders.append(os.path.join(root, dir_name))
 
     return subfolders
+
+
+def majority_vote(wav_list, y_pred):
+    # Create a dictionary to group segments by their common part
+    segments_by_wav = {}
+    for wav, pred in zip(wav_list, y_pred):
+        common_part = wav.rsplit('_', 1)[0]  
+        if common_part not in segments_by_wav:
+            segments_by_wav[common_part] = []
+        segments_by_wav[common_part].append(pred)
+
+    # Perform majority vote for each group and get the final predictions
+    final_predictions = []
+    for common_part, segment_preds in segments_by_wav.items():
+        counts = {pred: segment_preds.count(pred) for pred in set(segment_preds)}
+        majority_prediction = max(counts, key=counts.get)
+        final_predictions.append(majority_prediction)
+
+    return final_predictions
 
 
 def kfold_cross_val(file_names, labels, features_list, fold):
@@ -184,7 +205,7 @@ def kfold_cross_val(file_names, labels, features_list, fold):
     return aggregated_cm
 
 
-def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_path):
+def custom_folds_train_on_segments(json_folds, data_path, segment_size, test_seg, output_path):
     try:
         with open(json_folds) as f:
             folds = json.load(f)
@@ -210,6 +231,7 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         os.remove(f'{json_folds.replace(".json", "")}_results.txt')
     
     i=-1
+    pattern = r'class_(\d+)'
     for fold in folds:
         print(f"\n========================= FOLD {i+1}  =========================\n")
         train_wavs, test_wavs = [], []
@@ -231,7 +253,7 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         
         print("\nTrimming and segmenting songs. This may take a while..")
         prepare_dirs(data_path, train_wavs, test_wavs, output_path, segment_size, test_seg)
-        
+
         train_dirs = []
         train_dirs = get_subfolders(os.path.join(output_path, "train"))
         test_dir = os.path.join(output_path, "test")
@@ -239,10 +261,6 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         # train features
         features_list, class_names, file_names, shapes_list = feature_extractor(train_dirs, len(train_dirs))
         
-        # test features
-        mid_term_features, wav_file_list2, mid_feature_names = feature_extractor(test_dir, len(test_dir), train=False)
-        y_labels = [int(item.split("_")[1]) for item in wav_file_list2]
-
         # create list of labels (labels as many as the shapes (from shapes_list))
         features_list = np.array(features_list)
         if (features_list.shape[0]) > 0:
@@ -254,10 +272,20 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         else:
             raise ValueError("Features' list does not contain elements.")
 
+        # test features & test labels
+        mid_term_features, wav_file_list2, mid_feature_names = feature_extractor(test_dir, len(test_dir), train=False)
+        y_labels = []
+        for name in wav_file_list2:
+            match = re.search(pattern, name)
+            if match:
+                class_number = int(match.group(1))
+                y_labels.append(class_number)
+
         X_train = []
         y_train = []
         X_test = []
         y_test = []
+        test_names = []
 
         fold_train_df = create_df(file_names, labels, features_list) 
         fold_train_df = fold_train_df.sample(frac=1).reset_index(drop=True)
@@ -266,8 +294,9 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         y_train.append(fold_train_df['label'].values)
 
         fold_test_df = create_df(wav_file_list2, y_labels, mid_term_features)
-        fold_test_df = fold_test_df.sample(frac=1).reset_index(drop=True)
+        # fold_test_df = fold_test_df.sample(frac=1).reset_index(drop=True)
 
+        test_names.append(fold_test_df['file_name'].values)
         X_test.append(fold_test_df.iloc[:, 2:].values)
         y_test.append(fold_test_df['label'].values)
 
@@ -285,8 +314,11 @@ def custom_folds_train(json_folds, data_path, segment_size, test_seg, output_pat
         grid_search.fit(X_train, y_train)
         
         # best_model = grid_search.best_estimator_
-        y_pred = grid_search.predict(X_test)        
-        
+        y_pred = grid_search.predict(X_test)    
+
+        y_pred = majority_vote(test_names, y_pred)    
+        y_test = majority_vote(test_names, y_test)
+
         f1_macro_fold = grid_search.score(X_test, y_test)
         acc_fold = accuracy_score(y_test, y_pred)
         fold_cm = confusion_matrix(y_test, y_pred)

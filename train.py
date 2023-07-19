@@ -11,9 +11,9 @@ from data_load.dataloading import data_preparation_and_train
 """
 Examples:
 
-python3 train.py -d data/wav -j data/folds.json
-python3 train.py -d data/wav -j data/guitars.json
-python3 train.py -d data/wav -j data/amplifiers.json
+python3 train.py -d data/wav -j data/folds.json -o segmented
+python3 train.py -d data/wav -j data/guitars.json -o segmented
+python3 train.py -d data/wav -j data/amplifiers.json -o segmented
 
 """
 
@@ -50,7 +50,7 @@ def parse_arguments():
         '-t', 
         '--test_seg', 
         type=bool, 
-        default=False, 
+        default=True, 
         help='For segment-level predictions',
         action=argparse.BooleanOptionalAction
     )
